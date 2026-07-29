@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog Master</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 320px;
+      font-family: -apple-system, 'Pretendard', sans-serif;
+      font-size: 13px;
+      background: #0f0f12;
+      color: #e0e0e8;
+    }
+    .header {
+      padding: 16px;
+      border-bottom: 1px solid #1e1e28;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo { font-size: 18px; font-weight: 800; color: #a78bfa; }
+    .subtitle { font-size: 11px; color: #6b6b7e; margin-top: 2px; }
+    .status-bar {
+      padding: 10px 16px;
+      background: #13131a;
+      border-bottom: 1px solid #1e1e28;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #3d3d50; flex-shrink: 0;
+    }
+    .dot.connected { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+    .dot.working { background: #f59e0b; box-shadow: 0 0 6px #f59e0b88; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .status-text { font-size: 12px; color: #9898a8; }
+    .section { padding: 14px 16px; border-bottom: 1px solid #1e1e28; }
+    .section-title { font-size: 11px; font-weight: 600; color: #6b6b7e; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+    label { display: block; font-size: 12px; color: #9898a8; margin-bottom: 4px; }
+    input {
+      width: 100%; padding: 7px 10px;
+      background: #1a1a24; border: 1px solid #2a2a38;
+      border-radius: 6px; color: #e0e0e8; font-size: 12px;
+      outline: none; transition: border .15s;
+    }
+    input:focus { border-color: #a78bfa; }
+    input + label { margin-top: 10px; }
+    .btn {
+      display: block; width: 100%; padding: 9px;
+      border: none; border-radius: 7px; font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: opacity .15s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: linear-gradient(135deg, #7c3aed, #a78bfa); color: #fff; }
+    .btn-danger  { background: #2a1a1a; color: #f87171; border: 1px solid #3d2020; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; width: auto; display: inline-block; }
+    .mt { margin-top: 10px; }
+    .queue-list { display: flex; flex-direction: column; gap: 6px; }
+    .queue-item {
+      padding: 8px 10px; background: #13131a; border-radius: 6px;
+      border-left: 3px solid #2a2a38;
+    }
+    .queue-item.active { border-left-color: #a78bfa; }
+    .queue-item .title { font-size: 12px; font-weight: 600; color: #d0d0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .queue-item .meta { font-size: 11px; color: #5a5a6e; margin-top: 3px; }
+    .empty-msg { color: #4a4a5e; font-size: 12px; text-align: center; padding: 12px 0; }
+    .msg { padding: 8px 10px; border-radius: 6px; font-size: 12px; margin-top: 8px; }
+    .msg.error { background: #1f1010; color: #f87171; border: 1px solid #3a1a1a; }
+    .msg.success { background: #0f1f10; color: #4ade80; border: 1px solid #1a3a1a; }
+    #settings-section { display: none; }
+    .toggle-settings { background: none; border: none; color: #5a5a6e; font-size: 11px; cursor: pointer; padding: 10px 16px; display: block; width: 100%; text-align: left; }
+    .toggle-settings:hover { color: #9898a8; }
+    .running-badge {
+      display: inline-block; padding: 2px 6px; border-radius: 4px;
+      background: #1a1a2e; color: #a78bfa; font-size: 10px; font-weight: 600;
+    }
+    #logSection { display: none; }
+    .log-box {
+      max-height: 220px; overflow-y: auto;
+      background: #0a0a10; border: 1px solid #1e1e28;
+      border-radius: 6px; padding: 8px; font-family: monospace; font-size: 10px;
+    }
+    .log-entry { padding: 1px 0; border-bottom: 1px solid #13131a; line-height: 1.5; word-break: break-all; }
+    .log-entry:last-child { border-bottom: none; }
+    .log-ts { color: #3d3d50; margin-right: 4px; }
+    .log-info { color: #7dd3fc; }
+    .log-warn { color: #fbbf24; }
+    .log-error { color: #f87171; }
+    .log-controls { display: flex; gap: 6px; margin-bottom: 8px; }
+    .btn-log { padding: 4px 10px; font-size: 11px; border: 1px solid #2a2a38;
+      background: #13131a; color: #9898a8; border-radius: 5px; cursor: pointer; }
+    .btn-log:hover { border-color: #a78bfa; color: #a78bfa; }
+    .btn-log.active { border-color: #a78bfa; color: #a78bfa; background: #1a1a2e; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="logo">Blog Master</div>
+      <div class="subtitle">네이버 블로그 자동발행 확장</div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">연결 안 됨</span>
+  </div>
+
+  <!-- 미연결: 설정 폼 -->
+  <div id="setupSection" class="section">
+    <div class="section-title">초기 설정</div>
+    <label>액세스 토큰 <span style="color:#5a5a6e">(서비스 대시보드 → 설정에서 복사)</span></label>
+    <input type="password" id="accessToken" placeholder="eyJhbGci..." />
+    <button class="btn btn-primary mt" id="connectBtn">연결하기</button>
+    <div id="connectMsg"></div>
+  </div>
+
+  <!-- 연결됨: 대기열 -->
+  <div id="connectedSection" style="display:none">
+    <div class="section">
+      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>발행 대기열</span>
+        <span id="runningBadge" class="running-badge" style="display:none">처리 중</span>
+      </div>
+      <div class="queue-list" id="queueList">
+        <div class="empty-msg">대기 중인 발행 작업이 없습니다</div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">계정 정보</div>
+      <div style="font-size:12px; color:#7a7a8e" id="userInfo">—</div>
+      <button class="btn btn-danger mt" id="disconnectBtn">연결 해제</button>
+    </div>
+  </div>
+
+  <!-- 설정 토글 (연결됨 상태에서) -->
+  <div id="settingsSection" style="display:none">
+  </div>
+  <button class="toggle-settings" id="toggleSettingsBtn" style="display:none">⚙ 설정</button>
+  <button class="toggle-settings" id="toggleLogBtn" style="display:none">📋 백엔드 로그</button>
+
+  <!-- 로그 뷰어 -->
+  <div id="logSection" class="section">
+    <div class="section-title">백엔드 로그 (Extension Prepare)</div>
+    <div class="log-controls">
+      <button class="btn-log" id="refreshLogBtn">새로고침</button>
+      <button class="btn-log" id="clearLogViewBtn">지우기</button>
+      <button class="btn-log active" id="autoRefreshBtn">자동갱신 ON</button>
+    </div>
+    <div class="log-box" id="logBox"><span style="color:#3d3d50">로그가 없습니다</span></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

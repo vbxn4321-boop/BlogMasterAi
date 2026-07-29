@@ -1,0 +1,37 @@
+{
+  "name": "naver-blog-auto",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon engine_api.js",
+    "start": "node engine_api.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@portone/server-sdk": "^0.19.0",
+    "@supabase/supabase-js": "^2.98.0",
+    "axios": "^1.13.5",
+    "cheerio": "^1.2.0",
+    "clipboardy": "^5.3.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "lodash": "^4.17.23",
+    "node-cron": "^4.2.1",
+    "pg": "^8.19.0",
+    "puppeteer": "^24.37.5",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "sharp": "^0.34.5",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

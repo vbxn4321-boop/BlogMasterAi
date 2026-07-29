@@ -1,0 +1,32 @@
+# Dependency directories
+node_modules/
+
+# Environment variables
+.env
+
+# Logs
+logs/
+*.log
+*.txt
+!account_check.txt
+!all_accounts.txt
+!actual_models.txt
+!available_models.txt
+!beta_models.txt
+!models.txt
+
+# Debug outputs (HTML and Images)
+*.html
+*.png
+*.jpg
+*.jpeg
+
+# Puppeteer profiles and temporary data
+puppeteer_profile/
+puppeteer_profile_alt/
+user_data/
+tmp/
+
+# OS files
+.DS_Store
+Thumbs.db

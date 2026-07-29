@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+
+# Logs
+*.log
+**/logs/
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# Build
+frontend/build/
+
+# Puppeteer
+backend/puppeteer_profile/
+backend/puppeteer_profile_alt/
+
+# Temp files
+backend/tmp/
+backend/temp_uploads/
+backend/temp_footer_*.png
+backend/test_thumb*.jpg
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,22 @@
+{
+  "watch": [
+    "engine_api.js",
+    "module1_intake.js",
+    "module2_factory.js",
+    "module3_assets.js",
+    "module4_executor.js",
+    "module5_synergy.js",
+    "module6_ranking.js",
+    "keyword_analysis.js",
+    "utils.js",
+    "config.js"
+  ],
+  "ext": "js",
+  "ignore": [
+    "logs/*",
+    "user_data/*",
+    "node_modules/*",
+    "puppeteer_profile/*"
+  ],
+  "delay": "2500"
+}
