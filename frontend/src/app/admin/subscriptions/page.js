@@ -113,13 +113,6 @@ export default function AdminSubscriptionsPage() {
                 가격을 바꾸면 이미 구독 중인 사용자는 <strong>다음 결제 회차부터</strong> 새 가격이 적용됩니다.
             </p>
 
-            <div style={{ marginBottom: 20 }}>
-                <InlineAlert type="warning">
-                    등록 가능 프롬프트 수는 아직 실제로 개인 프롬프트를 등록하는 기능이 없어, 지금은 값만 저장해둘 뿐 어디에도 적용되지 않습니다.
-                    해당 기능이 만들어지면 이 값과 연동할 예정입니다.
-                </InlineAlert>
-            </div>
-
             {error && <InlineAlert type="error">{error}</InlineAlert>}
 
             {!plans ? (
