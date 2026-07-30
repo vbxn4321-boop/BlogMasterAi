@@ -14,6 +14,9 @@ import {
 } from "recharts";
 import SubscriptionGateModal from "@/components/SubscriptionGateModal";
 import { Modal, StatCard, InfoTooltip } from "@/components/ui";
+import OnboardingTour from "@/components/onboarding/OnboardingTour";
+import { keywordsTourSteps } from "@/lib/onboardingSteps";
+import { toKoreanErrorMessage } from "@/lib/errorMessage";
 
 const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#6366f1"];
 
@@ -300,7 +303,7 @@ export default function KeywordAnalysisPage() {
             setVisibleCount(10);
         } catch (err) {
             console.error("Analysis Error:", err);
-            setError(err.message);
+            setError(toKoreanErrorMessage(err, '분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'));
         } finally {
             timers.forEach(clearTimeout);
             setLoading(false);
@@ -313,6 +316,7 @@ export default function KeywordAnalysisPage() {
         if (!result) return null;
         return (
             <div className="bm-grid bm-grid-5" style={{ gap: '16px', marginBottom: '24px' }}>
+                <div data-tour="kw-grade-card">
                 <MetricCard title="키워드 등급" tip={sectionDescriptions.grade}>
                     <div style={{ textAlign: 'center' }}>
                         <div className="stat-value" style={{ fontSize: '48px', color: getGradeColor(result.seed_analysis.grade), lineHeight: 1, marginBottom: '8px', background: 'none', WebkitTextFillColor: 'initial' }}>
@@ -321,6 +325,8 @@ export default function KeywordAnalysisPage() {
                         <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-secondary)' }}>{result.seed_analysis?.grade || '분석 중'}</div>
                     </div>
                 </MetricCard>
+                </div>
+                <div data-tour="kw-volume-card">
                 <MetricCard title="월간 검색량" tip={sectionDescriptions.searchVolume}>
                     <div style={{ textAlign: 'center' }}>
                         <div className="stat-value">{result.seed_analysis.search_volume.toLocaleString()}</div>
@@ -330,6 +336,8 @@ export default function KeywordAnalysisPage() {
                         </div>
                     </div>
                 </MetricCard>
+                </div>
+                <div data-tour="kw-publish-card">
                 <MetricCard title={
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span>{contentType === 'cumulative' ? "누적 발행량" : "월간 발행량"}</span>
@@ -346,6 +354,8 @@ export default function KeywordAnalysisPage() {
                         </div>
                     </div>
                 </MetricCard>
+                </div>
+                <div data-tour="kw-saturation-card">
                 <MetricCard title={contentType === 'cumulative' ? "누적 포화 지수" : "월간 포화 지수"} tip={sectionDescriptions.saturation}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', width: '100%', gap: '8px' }}>
                         {['blog', 'cafe', 'total'].map(key => {
@@ -361,6 +371,8 @@ export default function KeywordAnalysisPage() {
                         })}
                     </div>
                 </MetricCard>
+                </div>
+                <div data-tour="kw-forecast-card">
                 <MetricCard title="예상 검색량" tip={sectionDescriptions.projection}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
                         <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
@@ -379,6 +391,7 @@ export default function KeywordAnalysisPage() {
                         </div>
                     </div>
                 </MetricCard>
+                </div>
             </div>
         );
     }, [result, contentType]);
@@ -575,6 +588,7 @@ export default function KeywordAnalysisPage() {
                             <option value="month">월간</option>
                         </select>
                         <button
+                            data-tour="kw-compare-btn"
                             className="btn-primary"
                             style={{ height: '32px', padding: '0 12px', fontSize: '12px' }}
                             onClick={() => {
@@ -765,7 +779,7 @@ export default function KeywordAnalysisPage() {
             </div>
 
             {/* Search Input Area */}
-            <div className="glass-card" style={{ marginBottom: '40px', padding: '24px' }}>
+            <div data-tour="kw-search-input" className="glass-card" style={{ marginBottom: '40px', padding: '24px' }}>
                 <form onSubmit={handleAnalyze} style={{ display: 'flex', gap: '16px' }}>
                     <div style={{ position: 'relative', flex: 1 }}>
                         <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -888,10 +902,10 @@ export default function KeywordAnalysisPage() {
             {result ? (
                 <div className="animate-in">
                     {topStatsSection}
-                    {trendChartsSection}
+                    <div data-tour="kw-trend-chart">{trendChartsSection}</div>
                     {sectionOrderSection}
-                    {relatedKeywordsSection}
-                    {smartBlocksSection}
+                    <div data-tour="kw-related-table">{relatedKeywordsSection}</div>
+                    <div data-tour="kw-smartblocks">{smartBlocksSection}</div>
                     <div style={{ position: 'relative' }}>
                         {advancedTrendSection}
                         {/* Keyword Compare Modal — 트렌드 카드 기준 오버레이 */}
@@ -1012,7 +1026,7 @@ export default function KeywordAnalysisPage() {
                                     </div>
                         </Modal>
                     </div>
-                    {demographicsSection}
+                    <div data-tour="kw-demographics">{demographicsSection}</div>
 
                 </div>
             ) : (
@@ -1032,6 +1046,7 @@ export default function KeywordAnalysisPage() {
             )}
 
             <SubscriptionGateModal open={showGateModal} onClose={() => setShowGateModal(false)} />
+            <OnboardingTour pageKey="keywords" steps={keywordsTourSteps} />
         </div>
     );
 }

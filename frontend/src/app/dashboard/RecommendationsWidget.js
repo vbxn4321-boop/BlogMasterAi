@@ -359,7 +359,7 @@ export default function RecommendationsWidget({ account }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <button
                         onClick={() => setViewMode(v => v === 'list' ? 'cloud' : 'list')}
-                        title={viewMode === 'list' ? '워드클라우드로 전환' : '리스트로 전환'}
+                        title={viewMode === 'list' ? '더보기' : '리스트로 전환'}
                         style={{
                             display: 'flex', alignItems: 'center', gap: 6,
                             fontSize: 12, fontWeight: 700,
@@ -375,7 +375,7 @@ export default function RecommendationsWidget({ account }) {
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                     <circle cx="12" cy="12" r="3" /><circle cx="4" cy="6" r="2" /><circle cx="20" cy="6" r="2" /><circle cx="4" cy="18" r="2" /><circle cx="20" cy="18" r="2" /><circle cx="8" cy="12" r="1.5" /><circle cx="16" cy="12" r="1.5" />
                                 </svg>
-                                워드클라우드
+                                더보기
                             </>
                         ) : (
                             <>

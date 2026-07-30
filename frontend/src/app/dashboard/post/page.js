@@ -7,7 +7,11 @@ import { useRouter } from "next/navigation";
 import { useSubscription } from "@/hooks/useSubscription";
 import { DEMO_ACCOUNT, DEMO_DRAFT } from "@/lib/trial";
 import { displayNaverId } from "@/lib/naver";
+import { toKoreanErrorMessage } from "@/lib/errorMessage";
+import { fetchWithAuthRetry } from "@/lib/fetchWithAuthRetry";
 import SubscriptionGateModal from "@/components/SubscriptionGateModal";
+import OnboardingTour, { ONBOARDING_START_EVENT } from "@/components/onboarding/OnboardingTour";
+import { postTourSteps } from "@/lib/onboardingSteps";
 
 const Icons = {
     Sparkles: () => (
@@ -437,7 +441,7 @@ export default function NewPostPage() {
         if (subLoading) return; // 구독 여부가 확정된 뒤 한 번만 로드 (비구독자용 예시 계정 깜빡임 방지)
         const loadAccounts = async () => {
             const { data: { user } } = await supabase.auth.getUser();
-            const { data: fetched } = await supabase.from('naver_accounts').select('id, naver_id, concept').eq('user_id', user?.id);
+            const { data: fetched } = await supabase.from('naver_accounts').select('id, naver_id, concept, custom_content_prompt').eq('user_id', user?.id);
             const data = isSubscribed ? (fetched || []) : [DEMO_ACCOUNT, ...(fetched || [])];
             setAccounts(data);
 
@@ -456,9 +460,10 @@ export default function NewPostPage() {
                         }));
                         if (draft.previews?.length > 0) setPreviews(draft.previews);
                         if (typeof draft.activePreviewIdx === 'number') setActivePreviewIdx(draft.activePreviewIdx);
-                        // URL ?topic= 파라미터가 있으면 드래프트보다 우선 적용
+                        // URL ?topic= 파라미터가 있으면 드래프트보다 우선 적용 (추천 키워드 클릭 시
+                        // 주제뿐 아니라 핵심 키워드 심화설정에도 동일한 키워드를 채워 SEO 타겟을 고정한다)
                         const quickTopic = new URLSearchParams(window.location.search).get('topic');
-                        if (quickTopic) setForm(f => ({ ...f, topic: quickTopic }));
+                        if (quickTopic) setForm(f => ({ ...f, topic: quickTopic, main_keyword: quickTopic }));
                         isDraftLoaded.current = true;
                         return;
                     }
@@ -469,8 +474,9 @@ export default function NewPostPage() {
             if (data?.length > 0) setForm(f => ({ ...f, naver_account_id: data[0].id }));
 
             // URL ?topic= 파라미터로 키워드 자동 입력 (추천 키워드 클릭 시)
+            // 주제뿐 아니라 핵심 키워드 심화설정에도 동일한 키워드를 채워 SEO 타겟을 고정한다
             const quickTopic = new URLSearchParams(window.location.search).get('topic');
-            if (quickTopic) setForm(f => ({ ...f, topic: quickTopic }));
+            if (quickTopic) setForm(f => ({ ...f, topic: quickTopic, main_keyword: quickTopic }));
 
             isDraftLoaded.current = true;
         };
@@ -630,6 +636,58 @@ export default function NewPostPage() {
     const [pexelsModalTemp, setPexelsModalTemp] = useState(null);
     const [quoteModalOpen, setQuoteModalOpen] = useState(false);
 
+    // 온보딩 투어가 "새 포스팅"에서 시작되면, 미리보기/무료 이미지 선택 관련 스텝들이
+    // 실제로 화면에 나타나도록 예시 원고 + 예시 Pexels 후보를 미리 채워 넣는다.
+    // 이미 진행 중인 실제 원고가 있으면 건드리지 않는다.
+    useEffect(() => {
+        const handler = (e) => {
+            if (e.detail?.pageKey !== 'post') return;
+            if (previews.length > 0) return;
+
+            const demoSlots = [
+                { desc: '맛집 외관과 간판', seed: 'a' },
+                { desc: '시그니처 메뉴 클로즈업', seed: 'b' },
+                { desc: '아늑한 매장 내부', seed: 'c' },
+            ].map((s, i) => ({
+                index: i,
+                korean_description: s.desc,
+                query: s.desc,
+                photos: [1, 2, 3].map(n => ({
+                    id: `demo-${s.seed}-${n}`,
+                    url: `https://picsum.photos/seed/bmdemo-${s.seed}${n}/480/320`,
+                    photographer: `예시 작가 ${n}`,
+                })),
+            }));
+            const demoSelected = {};
+            demoSlots.forEach(slot => {
+                demoSelected[slot.index] = { ...slot.photos[0], thumbnail: slot.photos[0].url };
+            });
+
+            setImageSource('stock');
+            setIsEditingPreview(false);
+            setPreviews([{
+                ...DEMO_DRAFT,
+                image_prompts: demoSlots.map(s => s.korean_description),
+                pexelsCandidates: demoSlots,
+                selectedPexels: demoSelected,
+                pexelsLoading: false,
+                _isOnboardingDemo: true, // 투어 종료 시 이 예시 원고만 골라서 지우기 위한 표시
+            }]);
+            setActivePreviewIdx(0);
+        };
+        window.addEventListener(ONBOARDING_START_EVENT, handler);
+        return () => window.removeEventListener(ONBOARDING_START_EVENT, handler);
+    }, [previews]);
+
+    // 온보딩 투어가 끝나면(완료/닫기/다시보지않기 어떤 경로든), 위에서 채워둔 예시 원고가
+    // 아직 그대로 남아있을 때만 지운다 — 투어 중 실제로 원고를 생성했다면 그건 건드리지 않는다.
+    const handleOnboardingEnd = () => {
+        if (previews.length === 1 && previews[0]?._isOnboardingDemo) {
+            setPreviews([]);
+            setImageSource('gemini'); // 투어를 위해 자동으로 바꿨던 것도 함께 원상복구
+        }
+    };
+
     const MEDIA_SIZE_LIMITS = { image: 5, video: 50, gif: 10 };
 
     // 현재 활성 탭 미리보기 (derived — pexels 상태도 preview 객체 내에 포함)
@@ -757,7 +815,7 @@ export default function NewPostPage() {
             const { error } = await supabase.storage
                 .from('blogmaster-images')
                 .upload(path, file, { contentType: file.type });
-            if (error) throw new Error(`이미지 업로드 실패: ${error.message}`);
+            if (error) throw new Error(`이미지 업로드 실패: ${toKoreanErrorMessage(error)}`);
             const { data: { publicUrl } } = supabase.storage.from('blogmaster-images').getPublicUrl(path);
             return publicUrl;
         }));
@@ -918,7 +976,7 @@ export default function NewPostPage() {
             } : { enabled: false };
 
             // 1. 비동기 원고 생성 시작
-            const startRes = await fetch('/api/post/preview-start', {
+            const startRes = await fetchWithAuthRetry('/api/post/preview-start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...finalForm, _media_meta: mediaMeta, thumbnail_text_config: thumbnailConfig, image_source: imageSource })
@@ -931,7 +989,7 @@ export default function NewPostPage() {
             let attempts = 0;
             while (attempts < 120) {
                 await new Promise(resolve => setTimeout(resolve, 3000));
-                const statusRes = await fetch(`/api/post/preview-status/${preview_id}`);
+                const statusRes = await fetchWithAuthRetry(`/api/post/preview-status/${preview_id}`);
                 const statusData = await statusRes.json();
                 if (statusData.status === 'done') {
                     const result = statusData.result;
@@ -981,7 +1039,7 @@ export default function NewPostPage() {
             }
             if (attempts >= 120) throw new Error('원고 생성 시간이 초과되었습니다. 다시 시도해주세요.');
         } catch (err) {
-            setError('미리보기 생성 실패: ' + err.message);
+            setError('미리보기 생성 실패: ' + toKoreanErrorMessage(err));
         } finally {
             setPreviewLoading(false);
         }
@@ -1096,7 +1154,7 @@ export default function NewPostPage() {
                 };
                 baseTopic = descs.join('\n\n');
             } catch (err) {
-                setError('이미지 처리 중 오류가 발생했습니다: ' + err.message);
+                setError('이미지 처리 중 오류가 발생했습니다: ' + toKoreanErrorMessage(err));
                 setLoading(false);
                 return;
             }
@@ -1192,7 +1250,7 @@ export default function NewPostPage() {
         const { data, error: insertError } = await supabase.from('posts').insert(postData).select().single();
 
         if (insertError) {
-            setError(insertError.message);
+            setError(toKoreanErrorMessage(insertError));
             setLoading(false);
         } else {
             setLoading(false);
@@ -1296,7 +1354,7 @@ export default function NewPostPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto', paddingRight: 8 }}>
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                         {/* 네이버 계정 */}
-                        <div className="glass-card" style={{ padding: '24px' }}>
+                        <div data-tour="post-account-select" className="glass-card" style={{ padding: '24px' }}>
                             {/* Account Row */}
                             <div>
                                 <label style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8, display: 'block', fontWeight: 600 }}>
@@ -1312,35 +1370,45 @@ export default function NewPostPage() {
                         </div>
 
                         {/* 글 말투 */}
-                        <div className="glass-card" style={{ padding: '24px' }}>
+                        <div data-tour="post-tone" className="glass-card" style={{ padding: '24px' }}>
                             <div>
                                 <label style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, display: 'block', fontWeight: 600 }}>
                                     글 말투
                                 </label>
-                                <div className="bm-grid bm-grid-5" style={{ gap: 8 }}>
-                                    {[
-                                        { value: '친근한 존댓말', icon: '😊', desc: '일상·리뷰' },
-                                        { value: '여성적인 말투', icon: '💕', desc: '감성·공감형' },
-                                        { value: '남성적인 말투', icon: '💪', desc: '간결·정보형' },
-                                        { value: '일상체', icon: '😂', desc: '~했음·ㅋㅋ' },
-                                        { value: '건강·의학', icon: '🏥', desc: '전문 정보형' },
-                                    ].map(cat => (
-                                        <button key={cat.value} type="button"
-                                            onClick={() => setForm({ ...form, seo_category: cat.value })}
-                                            style={{
-                                                padding: '10px 6px', borderRadius: 10, border: '1px solid',
-                                                borderColor: form.seo_category === cat.value ? 'var(--accent)' : 'var(--border)',
-                                                background: form.seo_category === cat.value ? 'rgba(27,67,50,0.15)' : 'var(--bg-secondary)',
-                                                color: form.seo_category === cat.value ? 'var(--accent)' : 'var(--text-secondary)',
-                                                cursor: 'pointer', textAlign: 'center', fontSize: 12, fontWeight: 600,
-                                                transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4
-                                            }}>
-                                            <span style={{ fontSize: 18 }}>{cat.icon}</span>
-                                            <span>{cat.value}</span>
-                                            <span style={{ fontSize: 10, fontWeight: 400, opacity: 0.7 }}>{cat.desc}</span>
-                                        </button>
-                                    ))}
-                                </div>
+                                {(() => {
+                                    const selectedAccount = accounts.find(a => a.id === form.naver_account_id);
+                                    const hasCustomPrompt = !!(selectedAccount?.custom_content_prompt?.trim());
+                                    return (
+                                        <div className="bm-grid bm-grid-3" style={{ gap: 8 }}>
+                                            {[
+                                                { value: '친근한 존댓말', icon: '😊', desc: '일상·리뷰' },
+                                                { value: '여성적인 말투', icon: '💕', desc: '감성·공감형' },
+                                                { value: '남성적인 말투', icon: '💪', desc: '간결·정보형' },
+                                                { value: '일상체', icon: '😂', desc: '~했음·ㅋㅋ' },
+                                                { value: '건강·의학', icon: '🏥', desc: '전문 정보형' },
+                                                { value: '나의 프롬프트', icon: '✨', desc: hasCustomPrompt ? '내 계정 설정' : '계정에서 설정 필요', disabled: !hasCustomPrompt },
+                                            ].map(cat => (
+                                                <button key={cat.value} type="button"
+                                                    disabled={cat.disabled}
+                                                    onClick={() => !cat.disabled && setForm({ ...form, seo_category: cat.value })}
+                                                    title={cat.disabled ? '네이버 계정 관리 > 프롬프트 설정에서 먼저 나만의 프롬프트를 등록해주세요.' : undefined}
+                                                    style={{
+                                                        padding: '10px 6px', borderRadius: 10, border: '1px solid',
+                                                        borderColor: form.seo_category === cat.value ? 'var(--accent)' : 'var(--border)',
+                                                        background: form.seo_category === cat.value ? 'rgba(27,67,50,0.15)' : 'var(--bg-secondary)',
+                                                        color: cat.disabled ? 'var(--text-muted)' : (form.seo_category === cat.value ? 'var(--accent)' : 'var(--text-secondary)'),
+                                                        cursor: cat.disabled ? 'not-allowed' : 'pointer', textAlign: 'center', fontSize: 12, fontWeight: 600,
+                                                        opacity: cat.disabled ? 0.5 : 1,
+                                                        transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4
+                                                    }}>
+                                                    <span style={{ fontSize: 18 }}>{cat.icon}</span>
+                                                    <span>{cat.value}</span>
+                                                    <span style={{ fontSize: 10, fontWeight: 400, opacity: 0.7 }}>{cat.desc}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
 
                                 {/* 말투 미리보기 */}
                                 {(() => {
@@ -1401,7 +1469,18 @@ export default function NewPostPage() {
                                             ],
                                         },
                                     };
-                                    const preview = tonePreview[form.seo_category];
+                                    let preview = tonePreview[form.seo_category];
+                                    if (form.seo_category === '나의 프롬프트') {
+                                        const selectedAccount = accounts.find(a => a.id === form.naver_account_id);
+                                        const customText = selectedAccount?.custom_content_prompt?.trim();
+                                        preview = customText ? {
+                                            label: '나의 프롬프트',
+                                            color: '#8b5cf6',
+                                            bg: 'rgba(139,92,246,0.07)',
+                                            border: 'rgba(139,92,246,0.25)',
+                                            lines: [customText],
+                                        } : null;
+                                    }
                                     if (!preview) return null;
                                     return (
                                         <div style={{
@@ -1434,7 +1513,7 @@ export default function NewPostPage() {
                         </div>
 
                         {/* 컨텐츠 생성 방식 */}
-                        <div className="glass-card" style={{ padding: '24px' }}>
+                        <div data-tour="post-mode-buttons" className="glass-card" style={{ padding: '24px' }}>
                             <div>
                                 <label style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, display: 'block', fontWeight: 600 }}>
                                     컨텐츠 생성 방식
@@ -1470,7 +1549,7 @@ export default function NewPostPage() {
                                     이미지 생성 방식
                                 </label>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 12 }}>
+                                <div data-tour="post-thumbnail-toggle" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 12 }}>
                                     <label style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>
                                         썸네일 TEXT 이미지 생성
                                     </label>
@@ -1714,7 +1793,7 @@ export default function NewPostPage() {
                                     </div>
                                 )}
 
-                                <div className="bm-grid bm-grid-half" style={{ gap: 10 }}>
+                                <div data-tour="post-image-source" className="bm-grid bm-grid-half" style={{ gap: 10 }}>
                                     {[
                                         { value: 'gemini', icon: '🤖', label: 'AI 이미지 생성', desc: 'Gemini로 직접 생성' },
                                         { value: 'stock', icon: '🖼️', label: '무료 이미지', desc: '무료 API로 검색' },
@@ -1865,7 +1944,7 @@ export default function NewPostPage() {
                                                 required
                                             />
                                     )}
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 8 }}>
+                                    <div data-tour="post-custom-instructions" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 8 }}>
                                         <label style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>
                                             작성 세부 요청사항 (선택)
                                         </label>
@@ -2006,7 +2085,7 @@ export default function NewPostPage() {
                         </div>
 
                         {/* 키워드 심화 설정 */}
-                        <div className="glass-card" style={{ padding: '24px' }}>
+                        <div data-tour="post-keyword-settings" className="glass-card" style={{ padding: '24px' }}>
                             <label style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, display: 'block', fontWeight: 600 }}>
                                 키워드 심화 설정 (선택 사항)
                                 </label>
@@ -2052,7 +2131,7 @@ export default function NewPostPage() {
                         </div> */}
 
                         {/* 언제 발행할까요? */}
-                        <div className="glass-card" style={{ padding: '24px' }}>
+                        <div data-tour="post-schedule-toggle" className="glass-card" style={{ padding: '24px' }}>
                             <label style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, display: 'block', fontWeight: 600 }}>
                                 언제 발행할까요?
                                 </label>
@@ -2139,7 +2218,7 @@ export default function NewPostPage() {
                                 </label>
 
                                 {/* Category */}
-                                <div style={{ marginBottom: 16 }}>
+                                <div data-tour="post-category" style={{ marginBottom: 16 }}>
                                     <label style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, display: 'block' }}>블로그 카테고리</label>
                                     {isCatOpen && (
                                         <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setIsCatOpen(false)} />
@@ -2222,7 +2301,7 @@ export default function NewPostPage() {
                                 </div>
 
                                 {/* Visibility */}
-                                <div style={{ marginBottom: 16 }}>
+                                <div data-tour="post-visibility" style={{ marginBottom: 16 }}>
                                     <label style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, display: 'block' }}>공개 설정</label>
                                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                                         {[
@@ -2289,7 +2368,7 @@ export default function NewPostPage() {
                                 </div>
 
                                 {/* Map Selection */}
-                                <div style={{ marginTop: 24, padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: 16, border: '1px solid var(--border)' }}>
+                                <div data-tour="post-map" style={{ marginTop: 24, padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: 16, border: '1px solid var(--border)' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                                         <label style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
                                             <input type="checkbox" checked={form.publish_options.use_map}
@@ -2397,7 +2476,7 @@ export default function NewPostPage() {
 
                         {error && <p style={{ color: 'var(--error)', fontSize: 12 }}>{error}</p>}
 
-                        <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                        <div data-tour="post-generate-btn" style={{ display: 'flex', gap: 10, marginTop: 8 }}>
                             <button type="button" className="btn-secondary" style={{ flex: 1, padding: '14px' }}
                                 onClick={isSubscribed ? handlePreview : handlePreviewDemo} disabled={previewLoading || loading || accounts.length === 0}>
                                 {previewLoading ? '작성 중...' : '원고 생성'}
@@ -2689,7 +2768,7 @@ export default function NewPostPage() {
                                 </span>
                             </div>
                             {previews.length > 0 && (
-                                <div style={{ display: 'flex', gap: 4 }}>
+                                <div data-tour="post-preview-tabs" style={{ display: 'flex', gap: 4 }}>
                                     {previews.map((_, idx) => (
                                         <button
                                             key={idx}
@@ -2713,6 +2792,7 @@ export default function NewPostPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             {previewData && !previewLoading && (
                                 <button
+                                    data-tour="post-edit-toggle"
                                     type="button"
                                     onClick={() => setIsEditingPreview(e => !e)}
                                     style={{
@@ -2737,7 +2817,7 @@ export default function NewPostPage() {
 
                     {/* SEO Analyzer Panel */}
                     {(previewData || previewLoading) && (
-                        <div style={{
+                        <div data-tour="post-seo-panel" style={{
                             padding: '24px 32px',
                             background: 'rgba(27,67,50, 0.05)',
                             borderBottom: '1px solid rgba(27,67,50, 0.1)',
@@ -2830,6 +2910,7 @@ export default function NewPostPage() {
                                     return (
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                                             <button
+                                                data-tour="post-quote-style-btn"
                                                 onClick={() => setQuoteModalOpen(true)}
                                                 style={{
                                                     display: 'flex', alignItems: 'center', gap: 7,
@@ -2926,7 +3007,7 @@ export default function NewPostPage() {
 
                                             {/* 무료 이미지 모드: 슬롯 카드 UI */}
                                             {imageSource === 'stock' && (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                                <div data-tour="post-pexels-panel" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                                     {pexelsLoading && (
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: 'rgba(27,67,50,0.05)', borderRadius: 12, border: '1px solid rgba(27,67,50,0.15)' }}>
                                                             <div style={{ width: 14, height: 14, border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
@@ -3287,6 +3368,7 @@ export default function NewPostPage() {
             )}
 
             <SubscriptionGateModal open={showGateModal} onClose={() => setShowGateModal(false)} />
+            <OnboardingTour pageKey="post" steps={postTourSteps} onEnd={handleOnboardingEnd} />
 
             <style jsx>{`
                 .spinner {

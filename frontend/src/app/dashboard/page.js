@@ -32,9 +32,10 @@ export default async function DashboardPage() {
             .eq('status', 'success')
             .order('created_at', { ascending: false })
             .limit(60),
-        // 계정별 "최근 포스팅" 목록용 — 실패(failed)한 글은 제외
+        // 계정별 "최근 포스팅" 목록용 — 실패(failed)한 글은 제외. scheduled_at은 예약 발행
+        // 여부와, 그 시각이 아직 안 지났으면 "예약됨"으로 표시하기 위해 필요하다.
         supabase.from('posts')
-            .select('id, naver_account_id, topic, naver_post_url, created_at, content_json')
+            .select('id, naver_account_id, topic, naver_post_url, created_at, content_json, scheduled_at')
             .eq('user_id', user?.id)
             .neq('status', 'failed')
             .order('created_at', { ascending: false })
@@ -108,17 +109,23 @@ export default async function DashboardPage() {
     }
 
     // 계정별 "최근 포스팅" 목록 — 실패(failed)한 글은 이미 위 쿼리에서 제외됐고, 최근 10개씩만 담는다.
+    // 예약 발행은 우리 쪽에서는 이미 완료(success)됐지만, 실제로는 지정한 시각에 네이버가
+    // 대신 발행해준다 — 그 시각이 아직 안 지났으면 "블로그 보기" 대신 "예약됨"으로 보여준다.
+    const now = Date.now();
     const postsByAccount = {};
     for (const post of (recentPosts || [])) {
         const accId = post.naver_account_id;
         if (!postsByAccount[accId]) postsByAccount[accId] = [];
         if (postsByAccount[accId].length >= 10) continue;
         const displayTitle = post.content_json?.title || post.topic?.split('|||')[0] || '(제목 없음)';
+        const isPendingSchedule = !!post.scheduled_at && new Date(post.scheduled_at).getTime() > now;
         postsByAccount[accId].push({
             postId: post.id,
             title: displayTitle,
             url: post.naver_post_url,
             createdAt: post.created_at,
+            scheduledAt: post.scheduled_at,
+            isPendingSchedule,
         });
     }
 

@@ -109,7 +109,7 @@ async function poll() {
   if (!apiUrl || !accessToken) return;
 
   if (activeJobId) {
-    const isOrphaned = !activeJobStartTime || (Date.now() - activeJobStartTime > 3 * 60 * 1000);
+    const isOrphaned = !activeJobStartTime || (Date.now() - activeJobStartTime > 8 * 60 * 1000);
     if (isOrphaned) {
       console.log('[BG] Orphaned activeJobId detected, clearing:', activeJobId);
       await set({ activeJobId: null, activeJobStartTime: null });
@@ -433,7 +433,7 @@ async function typeViaDebugger(tabId, text) {
           await sleep(20);
         }
         // 문장 하나가 통째로 '뿅' 나타나지 않도록, 다음 문장 전에 사람이 잠깐 쉬는 듯한 랜덤 딜레이
-        await sleep(80 + Math.random() * 160); // 80~240ms
+        await sleep(400 + Math.random() * 300); // 400~700ms
       }
     }
     if (i < lines.length - 1) {
@@ -1693,7 +1693,7 @@ async function runEditorAutomation(tabId, jobPayload) {
         }
       }
     }
-    await sleep(150);
+    await sleep(400);
   }
 
   // 본문에 business 태그가 없으면 맨 끝에 푸터 삽입
@@ -1840,19 +1840,33 @@ async function runEditorAutomation(tabId, jobPayload) {
   if (!finalBtnCoords) return { success: false, error: '최종 발행 버튼을 찾을 수 없습니다.' };
   await clickAtCoords(tabId, finalBtnCoords.x, finalBtnCoords.y);
 
-  // URL 변경 폴링 (최대 15초)
+  // URL 변경 폴링 (최대 15초) — 글쓰기 화면을 벗어났는지만 우선 확인
   let finalUrl = '';
   for (let i = 0; i < 30; i++) {
     await sleep(500);
     finalUrl = await evalInTab(tabId, () => window.location.href).catch(() => '');
     if (finalUrl && !finalUrl.includes('Redirect=Write') && !finalUrl.includes('PostWriteForm')) break;
   }
-  console.warn('[AUTOMATION] finalUrl:', finalUrl);
+  console.warn('[AUTOMATION] finalUrl (write 화면 이탈):', finalUrl);
 
   const isSuccess = finalUrl &&
     !finalUrl.includes('Redirect=Write') &&
     !finalUrl.includes('write.blog.naver.com') &&
     !finalUrl.includes('PostWriteForm');
+
+  // 글쓰기 화면은 벗어났지만 네이버가 게시글 고유 주소(블로그ID/글번호)가 아니라 블로그
+  // 홈(블로그ID)에 먼저 도착시키는 경우가 있다. 발행 성공 여부 판정은 그대로 두고(이미
+  // 위에서 끝났으므로 실패로 뒤집지 않음), "블로그 보기" 링크가 특정 글이 아니라 블로그
+  // 홈으로 가버리지 않도록 URL만 몇 초 더 지켜보며 글 번호가 포함된 주소로 갱신되면 그걸 쓴다.
+  const hasLogNo = (url) => /\/[a-zA-Z0-9_-]+\/\d{6,}(?:[/?#]|$)/.test(url) || /[?&]logNo=\d{6,}/.test(url);
+  if (isSuccess && !hasLogNo(finalUrl)) {
+    for (let i = 0; i < 10; i++) {
+      await sleep(500);
+      const url = await evalInTab(tabId, () => window.location.href).catch(() => '');
+      if (hasLogNo(url)) { finalUrl = url; break; }
+    }
+    console.warn('[AUTOMATION] finalUrl (게시글 고유 URL 재확인):', finalUrl);
+  }
 
   return {
     success: !!isSuccess,

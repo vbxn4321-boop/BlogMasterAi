@@ -1268,6 +1268,9 @@ async function executePipeline(post) {
                     thumbnailBgType: content.thumbnail_bg_type || 'image',
                     thumbnailBgColor: content.thumbnail_bg_color || null,
                     imageSource,
+                    // 계정에 저장된 이미지 프롬프트를 실제 이미지 생성 API 호출 시 프롬프트 끝에 직접 덧붙인다
+                    // (module2_factory.js의 IMAGE_PROMPTS_LIST 작성 힌트와 별개로, 생성 시점에 확정 반영됨)
+                    customImagePrompt: post.naver_accounts?.custom_image_prompt || null,
                     onProgress: async (current, total, prompt) => {
                         const percent = 55 + Math.floor((current / total) * 25); // 55% to 80%
                         const statusMsg = `이미지 준비 중 (${current}/${total} 완료)`;
@@ -1653,20 +1656,35 @@ async function prepareForExtension(post, extension_device_id, holdForApproval = 
         await updateProgress(post.id, '원고 작성', 'AI 원고를 생성하고 있습니다...', 40, '약 3분 남음');
         const factory = new ContentFactory(resolvedApiKey);
 
-        // customPrompts 구성 (executePipeline과 동일하게)
-        let customPrompts = {};
+        // customPrompts 구성 (executePipeline과 동일한 우선순위: 계정별 커스텀 프롬프트가 있으면
+        // 그것을 그대로 쓰고, 없을 때만 카테고리별 prompt_vault로 폴백한다.
+        // 예전엔 이 분기가 vault만 조회하고 계정의 custom_content_prompt/custom_image_prompt를
+        // 전혀 안 읽어서, 크롬 확장 발행 경로에서는 "나의 프롬프트"/이미지 커스텀 프롬프트가
+        // 반영되지 않는 문제가 있었다.
+        let customPrompts = null;
+        if (post.naver_accounts?.custom_content_prompt || post.naver_accounts?.custom_image_prompt || post.naver_accounts?.custom_thumbnail_prompt || post.naver_accounts?.custom_formatting_prompt) {
+            customPrompts = {
+                content_prompt: post.naver_accounts.custom_content_prompt,
+                image_prompt: post.naver_accounts.custom_image_prompt,
+                thumbnail_prompt: post.naver_accounts.custom_thumbnail_prompt,
+                formatting_prompt: post.naver_accounts.custom_formatting_prompt,
+            };
+        }
+
+        if (!customPrompts) {
+            const { data: vaultPrompt } = await supabase
+                .from('prompt_vault')
+                .select('content_prompt, image_prompt, thumbnail_prompt')
+                .eq('category', post.category || '일상')
+                .eq('is_active', true)
+                .single();
+            if (vaultPrompt) customPrompts = vaultPrompt;
+        }
+
+        if (!customPrompts) customPrompts = {};
         if (keywordConfig.custom_instructions) customPrompts.custom_instructions = keywordConfig.custom_instructions;
         if (keywordConfig.seo_category) customPrompts.seo_category = keywordConfig.seo_category;
         if (keywordConfig.thumbnail_text_config) customPrompts.thumbnail_text_config = keywordConfig.thumbnail_text_config;
-
-        // prompt_vault에서 카테고리별 프롬프트 조회
-        const { data: vaultPrompt } = await supabase
-            .from('prompt_vault')
-            .select('content_prompt, image_prompt, thumbnail_prompt')
-            .eq('category', post.category || '일상')
-            .eq('is_active', true)
-            .single();
-        if (vaultPrompt) customPrompts = { ...vaultPrompt, ...customPrompts };
 
         customPrompts.image_source = imageSourceExt;
 
@@ -1712,6 +1730,7 @@ async function prepareForExtension(post, extension_device_id, holdForApproval = 
                 thumbnailBgType: content.thumbnail_bg_type || 'image',
                 thumbnailBgColor: content.thumbnail_bg_color || null,
                 imageSource: imageSourceExt,
+                customImagePrompt: post.naver_accounts?.custom_image_prompt || null,
                 onProgress: async (current, total, prompt) => {
                     const percent = 55 + Math.floor((current / total) * 20);
                     await updateProgress(post.id, '이미지 생성', `이미지 준비 중 (${current}/${total} 완료)`, percent, `[${current}/${total}] ${prompt.substring(0, 20)}...`);
@@ -2055,7 +2074,7 @@ app.post('/api/pexels/candidates', async (req, res) => {
 
 // 구독 시작: 프론트에서 발급받은 빌링키를 서버가 재검증하고 첫 달 요금을 즉시 청구한다.
 app.post('/api/billing/subscribe', authMiddleware, async (req, res) => {
-    const { user_id, billing_key_id } = req.body;
+    const { user_id, billing_key_id, plan_key } = req.body;
     if (!user_id || !billing_key_id) return res.status(400).json({ error: 'user_id, billing_key_id required' });
 
     const billing = require('./billing');
@@ -2065,8 +2084,29 @@ app.post('/api/billing/subscribe', authMiddleware, async (req, res) => {
         const verified = await billing.verifyBillingKey(billing_key_id);
         if (!verified) return res.status(400).json({ error: '빌링키 검증에 실패했습니다.' });
 
-        const amount = parseInt(process.env.PORTONE_PRO_PLAN_PRICE, 10);
-        if (!amount) return res.status(500).json({ error: 'PORTONE_PRO_PLAN_PRICE 환경변수가 설정되지 않았습니다.' });
+        // 가격은 절대 클라이언트가 보낸 값을 믿지 않고 서버에서 직접 결정한다.
+        // - basic/pro: 자율 가입 — subscription_plans의 관리자 설정 가격을 그대로 청구, plan_type도 여기서 확정
+        // - company: 자율 가입 불가 — 반드시 관리자가 사전에 profiles.plan_type='company' +
+        //   override_price를 설정해둔 계정만 결제 가능(강제 결제 모달 전용 플로우). plan_type은 이미
+        //   company이므로 변경하지 않는다.
+        let amount;
+        let newPlanType = null;
+
+        if (plan_key === 'basic' || plan_key === 'pro') {
+            const { data: planRow } = await supabase
+                .from('subscription_plans').select('price').eq('plan_key', plan_key).maybeSingle();
+            amount = planRow?.price || (plan_key === 'pro' ? parseInt(process.env.PORTONE_PRO_PLAN_PRICE, 10) : null);
+            if (!amount) return res.status(500).json({ error: `${plan_key} 요금제 가격이 설정되지 않았습니다. 관리자 > 구독 관리에서 가격을 설정해주세요.` });
+            newPlanType = plan_key;
+        } else {
+            const { data: profile } = await supabase
+                .from('profiles').select('plan_type, override_price').eq('id', user_id).single();
+            if (profile?.plan_type !== 'company') {
+                return res.status(400).json({ error: '컴퍼니 요금제로 전환된 계정만 이 방식으로 결제할 수 있습니다.' });
+            }
+            amount = profile.override_price;
+            if (!amount) return res.status(500).json({ error: '아직 결제 금액이 설정되지 않았습니다. 관리자에게 문의해주세요.' });
+        }
 
         const paymentId = `sub_${user_id}_${Date.now()}`;
         const charge = await billing.chargeBillingKey({ billingKeyId: billing_key_id, paymentId, userId: user_id, amount });
@@ -2100,7 +2140,9 @@ app.post('/api/billing/subscribe', authMiddleware, async (req, res) => {
             portone_transaction_id: null, amount, status: 'paid',
         });
 
-        await supabase.from('profiles').update({ plan_type: 'pro' }).eq('id', user_id);
+        if (newPlanType) {
+            await supabase.from('profiles').update({ plan_type: newPlanType }).eq('id', user_id);
+        }
 
         console.log(`[Billing] 구독 시작 성공: user=${user_id}, paymentId=${paymentId}`);
         res.json({ status: 'active', current_period_end: currentPeriodEnd.toISOString() });

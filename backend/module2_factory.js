@@ -93,6 +93,11 @@ class ContentFactory {
         };
 
         const selectedCategory = accountPrompts.seo_category || '친근한 존댓말';
+        // '나의 프롬프트' 선택 시에는 미리 정의된 톤 파일을 전혀 로드하지 않는다 — 그래야
+        // 아래 [BASE INSTRUCTIONS]의 userContentPrompt(계정별 custom_content_prompt)가
+        // "우선 적용" 톤 파일에 밀리지 않고 유일한 말투 지침으로 작동한다.
+        // [FORMATTING RULES]/[REQUIRED STRUCTURE & TAGS]의 필수 제약은 이 선택과 무관하게 항상 그대로 유지된다.
+        const isCustomPromptMode = selectedCategory === '나의 프롬프트';
 
         const loadPromptFile = (filename) => {
             try {
@@ -103,8 +108,8 @@ class ContentFactory {
             }
         };
 
-        const categoryPrompt = loadPromptFile(categoryFileMap[selectedCategory] || categoryFileMap['친근한 존댓말']);
-        console.log(`[ContentFactory] 글 말투: ${selectedCategory}`);
+        const categoryPrompt = isCustomPromptMode ? '' : loadPromptFile(categoryFileMap[selectedCategory] || categoryFileMap['친근한 존댓말']);
+        console.log(`[ContentFactory] 글 말투: ${selectedCategory}${isCustomPromptMode ? ' (계정 커스텀 프롬프트 사용)' : ''}`);
 
         // 풋터: 사용자가 등록한 footer_components/footer_text는 발행 시 구조화된 푸터 시스템이
         // 정확한 위치에 직접 삽입하므로, 본문에는 절대 끼워넣지 않는다 (중복 방지).
@@ -179,7 +184,7 @@ ${userFormattingPrompt || '본문 중간중간 중요 정보에 [B] 태그를 �
    - ###[SEO_GUIDELINES]
 
 2-1. **IMAGE_PROMPTS_LIST 작성 규칙 (절대 준수)**:
-${imageSource === 'stock' ? `
+${accountPrompts.image_prompt ? `   - **사용자 지정 이미지 스타일 가이드 (아래 내용을 이미지 프롬프트의 분위기·스타일에 반영하되, 이 섹션의 다른 절대 규칙(언어/형식)은 그대로 지킬 것)**: ${accountPrompts.image_prompt}\n` : ''}${imageSource === 'stock' ? `
    - 이미지 프롬프트는 반드시 **영어(English)**로만 작성하세요. 한글 사용 절대 금지.
    - **Pexels 사진 검색 최적화 모드**: 반드시 **쉼표(,)로 구분된 1~2단어 키워드 2~3개** 형식으로만 작성하세요.
    - 형식: "키워드1, 키워드2" 또는 "키워드1, 키워드2, 키워드3"

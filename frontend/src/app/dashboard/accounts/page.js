@@ -5,8 +5,11 @@ import { createClient } from "@/lib/supabase/client";
 import { useSubscription } from "@/hooks/useSubscription";
 import { DEMO_ACCOUNT, isDemoAccount } from "@/lib/trial";
 import { displayNaverId } from "@/lib/naver";
+import { toKoreanErrorMessage } from "@/lib/errorMessage";
 import SubscriptionGateModal from "@/components/SubscriptionGateModal";
 import { InlineAlert } from "@/components/ui";
+import OnboardingTour from "@/components/onboarding/OnboardingTour";
+import { accountsTourSteps } from "@/lib/onboardingSteps";
 
 // 예전엔 "미술·디자인"처럼 두 주제를 한 항목으로 묶었으나, 각각 독립적으로
 // 선택·조회·추천되도록 전부 단일 항목으로 분리함 (원고 발행 시 네이버 실제
@@ -85,13 +88,14 @@ export default function AccountsPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [editingFooter, setEditingFooter] = useState(null);
+    const [editingPrompt, setEditingPrompt] = useState(null);
     const [editingConcept, setEditingConcept] = useState(null);
     const [editingConceptValue, setEditingConceptValue] = useState('');
     const [conceptSaving, setConceptSaving] = useState(false);
     const [conceptError, setConceptError] = useState('');
     const [showGateModal, setShowGateModal] = useState(false);
 
-    const { isSubscribed } = useSubscription();
+    const { isSubscribed, maxNaverAccounts } = useSubscription();
     const supabase = createClient();
     const openGateModal = () => setShowGateModal(true);
 
@@ -126,7 +130,7 @@ export default function AccountsPage() {
         });
 
         if (insertError) {
-            setError(insertError.message.includes('Maximum') ? '최대 3개까지 연결할 수 있습니다.' : insertError.message);
+            setError(insertError.message.includes('Maximum') ? `최대 ${maxNaverAccounts}개까지 연결할 수 있습니다.` : toKoreanErrorMessage(insertError));
         } else {
             setFormData({ naver_id: '', password: '', concept: '맛집' });
             setShowForm(false);
@@ -151,7 +155,7 @@ export default function AccountsPage() {
             .eq('user_id', user.id);
         setConceptSaving(false);
         if (error) {
-            setConceptError('저장 실패: ' + error.message);
+            setConceptError('저장 실패: ' + toKoreanErrorMessage(error));
         } else {
             setAccounts(prev => prev.map(a => a.id === id ? { ...a, concept: editingConceptValue } : a));
             setEditingConcept(null);
@@ -171,17 +175,21 @@ export default function AccountsPage() {
         return Array.isArray(comps) && comps.length > 0;
     };
 
+    const hasCustomPrompt = (account) => !!(account.custom_content_prompt && account.custom_content_prompt.trim());
+
     return (
         <div className="animate-in" style={{ maxWidth: 780, margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
                 <div>
                     <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>네이버 계정 관리</h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-                        최대 3개의 네이버 블로그 아이디를 연동할 수 있습니다. ({accounts.length}/3)
+                        {isSubscribed
+                            ? `최대 ${maxNaverAccounts}개의 네이버 블로그 아이디를 연동할 수 있습니다. (${accounts.length}/${maxNaverAccounts})`
+                            : '구독하면 요금제 등급에 따라 네이버 블로그 아이디를 연동할 수 있습니다.'}
                     </p>
                 </div>
-                {accounts.length < 3 && (
-                    <button className="btn-primary" onClick={() => isSubscribed ? setShowForm(!showForm) : openGateModal()}>
+                {(!isSubscribed || accounts.length < maxNaverAccounts) && (
+                    <button data-tour="acc-add-btn" className="btn-primary" onClick={() => isSubscribed ? setShowForm(!showForm) : openGateModal()}>
                         {showForm ? '취소' : '+ 계정 추가'}
                     </button>
                 )}
@@ -238,56 +246,69 @@ export default function AccountsPage() {
                     <div className="glass-card" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40 }}>
                         연결된 네이버 계정이 없습니다.
                     </div>
-                ) : displayAccounts.map(account => (
+                ) : displayAccounts.map((account, idx) => (
                     <div key={account.id}>
                         {/* Account Row */}
-                        <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                        <div className="glass-card" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 20, minWidth: 0 }}>
                                 <div style={{
-                                    width: 48, height: 48, borderRadius: 12,
+                                    width: 48, height: 48, borderRadius: 12, flexShrink: 0,
                                     background: 'var(--gradient-1)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     fontSize: 20, fontWeight: 800, color: 'white',
                                 }}>
                                     {displayNaverId(account.naver_id)[0]?.toUpperCase()}
                                 </div>
-                                <div>
+                                <div style={{ minWidth: 0 }}>
                                     <div style={{ fontWeight: 700, fontSize: 16 }}>{displayNaverId(account.naver_id)}</div>
-                                    <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>{account.concept}</span>
+                                    <div {...(idx === 0 ? { 'data-tour': 'acc-card-badges' } : {})} style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 4, columnGap: 8 }}>
+                                        <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{account.concept}</span>
                                         {editingConcept !== account.id ? (
                                             <button
                                                 onClick={() => { setEditingConcept(account.id); setEditingConceptValue(account.concept); }}
-                                                style={{ fontSize: 11, padding: '2px 7px', borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                                                style={{ fontSize: 11, padding: '2px 7px', borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                                 컨셉 수정
                                             </button>
                                         ) : (
-                                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, background: 'var(--accent-glow)', color: 'var(--accent)', fontWeight: 600 }}>
+                                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, background: 'var(--accent-glow)', color: 'var(--accent)', fontWeight: 600, whiteSpace: 'nowrap' }}>
                                                 선택 중
                                             </span>
                                         )}
-                                        <span style={{ opacity: 0.3 }}>·</span>
-                                        <span>{account.is_session_valid
-                                            ? <span style={{ color: 'var(--success)' }}>세션 활성</span>
-                                            : <span style={{ color: 'var(--warning)' }}>세션 없음</span>}
+                                        <span style={{ whiteSpace: 'nowrap' }}>
+                                            <span style={{ opacity: 0.3 }}>· </span>
+                                            {account.is_session_valid
+                                                ? <span style={{ color: 'var(--success)' }}>세션 활성</span>
+                                                : <span style={{ color: 'var(--warning)' }}>세션 없음</span>}
                                         </span>
-                                        <span style={{ opacity: 0.3 }}>·</span>
-                                        <span style={{ color: hasFooter(account) ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                        <span style={{ whiteSpace: 'nowrap', color: hasFooter(account) ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                            <span style={{ opacity: 0.3 }}>· </span>
                                             {hasFooter(account) ? '푸터 설정됨' : '푸터 없음'}
+                                        </span>
+                                        <span style={{ whiteSpace: 'nowrap', color: hasCustomPrompt(account) ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                            <span style={{ opacity: 0.3 }}>· </span>
+                                            {hasCustomPrompt(account) ? '나만의 프롬프트 설정됨' : '기본 프롬프트'}
                                         </span>
                                     </div>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', gap: 8 }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                                 <button
                                     className="btn-secondary"
+                                    onClick={() => setEditingPrompt(editingPrompt === account.id ? null : account.id)}
+                                    style={{ fontSize: 13, whiteSpace: 'nowrap' }}
+                                >
+                                    {editingPrompt === account.id ? '닫기' : '프롬프트 설정'}
+                                </button>
+                                <button
+                                    {...(idx === 0 ? { 'data-tour': 'acc-footer-btn' } : {})}
+                                    className="btn-secondary"
                                     onClick={() => setEditingFooter(editingFooter === account.id ? null : account.id)}
-                                    style={{ fontSize: 13 }}
+                                    style={{ fontSize: 13, whiteSpace: 'nowrap' }}
                                 >
                                     {editingFooter === account.id ? '닫기' : '푸터 설정'}
                                 </button>
                                 <button className="btn-secondary" onClick={() => handleDelete(account.id)}
-                                    style={{ color: 'var(--error)', borderColor: 'rgba(239,68,68,0.3)', fontSize: 13 }}>
+                                    style={{ color: 'var(--error)', borderColor: 'rgba(239,68,68,0.3)', fontSize: 13, whiteSpace: 'nowrap' }}>
                                     삭제
                                 </button>
                             </div>
@@ -317,6 +338,17 @@ export default function AccountsPage() {
                             </div>
                         )}
 
+                        {/* Prompt Editor */}
+                        {editingPrompt === account.id && (
+                            <PromptEditor
+                                account={account}
+                                supabase={supabase}
+                                onSaved={loadAccounts}
+                                isSubscribed={isSubscribed}
+                                onGateBlocked={openGateModal}
+                            />
+                        )}
+
                         {/* Footer Editor */}
                         {editingFooter === account.id && (
                             <FooterEditor
@@ -332,6 +364,83 @@ export default function AccountsPage() {
             </div>
 
             <SubscriptionGateModal open={showGateModal} onClose={() => setShowGateModal(false)} />
+            <OnboardingTour pageKey="accounts" steps={accountsTourSteps} />
+        </div>
+    );
+}
+
+function PromptEditor({ account, supabase, onSaved, isSubscribed, onGateBlocked }) {
+    const isDemo = !isSubscribed && isDemoAccount(account.id);
+    const [contentPrompt, setContentPrompt] = useState(account.custom_content_prompt || '');
+    const [imagePrompt, setImagePrompt] = useState(account.custom_image_prompt || '');
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const [saved, setSaved] = useState(false);
+
+    const handleSave = async () => {
+        if (isDemo) { onGateBlocked?.(); return; }
+        setSaving(true);
+        setError('');
+        setSaved(false);
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error: updateError } = await supabase
+            .from('naver_accounts')
+            .update({ custom_content_prompt: contentPrompt.trim(), custom_image_prompt: imagePrompt.trim() })
+            .eq('id', account.id)
+            .eq('user_id', user.id);
+        setSaving(false);
+        if (updateError) {
+            setError(updateError.message.includes('Maximum of')
+                ? '가입하신 요금제에서 허용하는 커스텀 프롬프트 계정 수를 초과했습니다.'
+                : toKoreanErrorMessage(updateError));
+        } else {
+            setSaved(true);
+            onSaved?.();
+        }
+    };
+
+    return (
+        <div className="glass-card animate-in" style={{ marginTop: 4, borderTop: '2px solid var(--accent)', borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>나만의 프롬프트 — {displayNaverId(account.naver_id)}</h3>
+            <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>
+                여기에 설정한 내용은 새 포스팅의 &apos;글 말투&apos;에서 &apos;나의 프롬프트 적용하기&apos;를 선택했을 때 사용됩니다.
+                필수 서식 규칙(태그 구조, 금지어 등)은 이 설정과 무관하게 항상 그대로 적용됩니다.
+            </p>
+
+            <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6, display: 'block', fontWeight: 600 }}>
+                    말투 프롬프트
+                </label>
+                <textarea
+                    className="input-field"
+                    rows={5}
+                    placeholder="예: 당신은 20년 경력의 여행 전문 블로거입니다. 독자에게 신뢰감을 주는 담백한 문체로 작성하세요."
+                    value={contentPrompt}
+                    onChange={e => setContentPrompt(e.target.value)}
+                    style={{ width: '100%', resize: 'vertical' }}
+                />
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6, display: 'block', fontWeight: 600 }}>
+                    이미지 프롬프트
+                </label>
+                <textarea
+                    className="input-field"
+                    rows={3}
+                    placeholder="예: 따뜻한 톤의 자연광, 미니멀한 구도로 생성해주세요."
+                    value={imagePrompt}
+                    onChange={e => setImagePrompt(e.target.value)}
+                    style={{ width: '100%', resize: 'vertical' }}
+                />
+            </div>
+
+            {error && <p style={{ color: 'var(--error)', fontSize: 13, marginBottom: 12 }}>{error}</p>}
+            {saved && !error && <p style={{ color: 'var(--success)', fontSize: 13, marginBottom: 12 }}>저장되었습니다.</p>}
+
+            <button className="btn-primary" onClick={handleSave} disabled={saving}>
+                {saving ? '저장 중...' : '저장'}
+            </button>
         </div>
     );
 }
@@ -437,7 +546,7 @@ function FooterEditor({ account, supabase, onSaved, isSubscribed, onGateBlocked 
         const { error: uploadError } = await supabase.storage.from('assets').upload(storagePath, file, { upsert: true });
 
         if (uploadError) {
-            setMessage({ type: 'error', text: '이미지 업로드 실패: ' + uploadError.message });
+            setMessage({ type: 'error', text: '이미지 업로드 실패: ' + toKoreanErrorMessage(uploadError) });
             setUploading(false);
             return;
         }
@@ -491,7 +600,7 @@ function FooterEditor({ account, supabase, onSaved, isSubscribed, onGateBlocked 
         }).eq('id', account.id);
 
         if (error) {
-            setMessage({ type: 'error', text: '저장 실패: ' + error.message });
+            setMessage({ type: 'error', text: '저장 실패: ' + toKoreanErrorMessage(error) });
         } else {
             setMessage({ type: 'success', text: '푸터 설정이 저장되었습니다.' });
             onSaved();

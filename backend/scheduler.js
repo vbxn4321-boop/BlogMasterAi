@@ -408,7 +408,14 @@ class Scheduler {
         console.log('[Scheduler] Starting subscription billing run...');
 
         const nowIso = new Date().toISOString();
-        const amount = parseInt(process.env.PORTONE_PRO_PLAN_PRICE, 10);
+        const fallbackAmount = parseInt(process.env.PORTONE_PRO_PLAN_PRICE, 10);
+
+        // 등급별 가격 조회 — 관리자가 /admin/subscriptions에서 가격을 바꾸면 다음 재청구부터
+        // 바로 반영되도록, 청구 시점마다 subscription_plans를 새로 조회한다(캐시하지 않음).
+        const { data: planRows } = await supabase
+            .from('subscription_plans')
+            .select('plan_key, price');
+        const priceByPlan = new Map((planRows || []).map(p => [p.plan_key, p.price]));
 
         // 1) 취소된 구독 중 기간 만료분 → 강등만
         const { data: expiredCanceled } = await supabase
@@ -437,14 +444,26 @@ class Scheduler {
             console.log('[Scheduler] Subscription billing: 재청구 대상 없음.');
             return;
         }
-        if (!amount) {
-            console.error('[Scheduler] PORTONE_PRO_PLAN_PRICE 환경변수가 없어 재청구를 건너뜁니다.');
-            return;
-        }
+
+        const { data: subProfiles } = await supabase
+            .from('profiles')
+            .select('id, plan_type, override_price')
+            .in('id', dueSubs.map(s => s.user_id));
+        const profileByUser = new Map((subProfiles || []).map(p => [p.id, p]));
 
         const billing = require('./billing');
 
         for (const sub of dueSubs) {
+            const userProfile = profileByUser.get(sub.user_id);
+            const userPlan = userProfile?.plan_type;
+            // 컴퍼니는 요금제 공통 가격표 대신 그 회사 전용으로 설정해둔 override_price를 우선 사용
+            const amount = (userPlan === 'company' && userProfile?.override_price)
+                ? userProfile.override_price
+                : (priceByPlan.get(userPlan) ?? fallbackAmount);
+            if (!amount) {
+                console.error(`[Scheduler] 요금제 가격을 찾을 수 없어 재청구 건너뜀: user=${sub.user_id}, plan=${userPlan || '알수없음'}`);
+                continue;
+            }
             const paymentId = `sub_${sub.user_id}_${Date.now()}`;
             const charge = await billing.chargeBillingKey({
                 billingKeyId: sub.portone_billing_key_id, paymentId, userId: sub.user_id, amount,

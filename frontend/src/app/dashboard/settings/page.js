@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useSubscription } from "@/hooks/useSubscription";
-import * as PortOne from "@portone/browser-sdk/v2";
 import { SectionHeader, InlineAlert, Modal } from "@/components/ui";
+import { toKoreanErrorMessage } from "@/lib/errorMessage";
+import SubscribePlanModal from "@/components/SubscribePlanModal";
 
 function daysInMonth(year, month) {
     if (!year || !month) return 31;
@@ -18,7 +19,7 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [showKey, setShowKey] = useState(false);
-    const { isSubscribed, loading: subLoading } = useSubscription();
+    const { isSubscribed, planType, loading: subLoading } = useSubscription();
 
     const supabase = createClient();
 
@@ -94,7 +95,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Subscription Plan Section */}
-            <SubscriptionSection isSubscribed={isSubscribed} loading={subLoading} />
+            <SubscriptionSection isSubscribed={isSubscribed} planType={planType} loading={subLoading} />
 
             {/* Gemini API Key Section */}
             <div className="glass-card" style={{ marginBottom: 24 }}>
@@ -204,12 +205,13 @@ export default function SettingsPage() {
     );
 }
 
-function SubscriptionSection({ isSubscribed, loading }) {
-    const [subscribing, setSubscribing] = useState(false);
+const PLAN_LABELS = { basic: '베이직', pro: '프로', company: '컴퍼니' };
+
+function SubscriptionSection({ isSubscribed, planType, loading }) {
     const [canceling, setCanceling] = useState(false);
     const [billingMessage, setBillingMessage] = useState({ type: '', text: '' });
     const [subscription, setSubscription] = useState(null);
-    const [agreedToRecurring, setAgreedToRecurring] = useState(false);
+    const [showPlanModal, setShowPlanModal] = useState(false);
     const supabase = createClient();
 
     useEffect(() => {
@@ -226,47 +228,6 @@ function SubscriptionSection({ isSubscribed, loading }) {
         })();
     }, [isSubscribed]);
 
-    const handleSubscribeClick = async () => {
-        if (!agreedToRecurring) {
-            setBillingMessage({ type: 'error', text: '정기결제 및 자동갱신 안내에 동의해주세요.' });
-            return;
-        }
-        setBillingMessage({ type: '', text: '' });
-        setSubscribing(true);
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('로그인이 필요합니다.');
-
-            const issueResponse = await PortOne.requestIssueBillingKey({
-                storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID,
-                channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY,
-                billingKeyMethod: 'CARD',
-                issueId: `issue_${user.id}_${Date.now()}`,
-                issueName: 'PRO 플랜 정기결제 카드 등록',
-                customer: { customerId: user.id, email: user.email || undefined },
-            });
-
-            if (!issueResponse || issueResponse.code) {
-                throw new Error(issueResponse?.message || '카드 등록이 취소되었거나 실패했습니다.');
-            }
-
-            const res = await fetch('/api/billing/subscribe', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ billing_key_id: issueResponse.billingKey })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || '구독 처리에 실패했습니다.');
-
-            setBillingMessage({ type: 'success', text: '구독이 시작되었습니다! 잠시 후 화면이 갱신됩니다.' });
-            setTimeout(() => window.location.reload(), 1200);
-        } catch (err) {
-            setBillingMessage({ type: 'error', text: err.message });
-        } finally {
-            setSubscribing(false);
-        }
-    };
-
     const handleCancelClick = async () => {
         if (!confirm('구독을 취소하시겠습니까?\n이미 결제한 기간이 끝날 때까지는 계속 PRO 기능을 이용하실 수 있습니다.')) return;
         setCanceling(true);
@@ -278,7 +239,7 @@ function SubscriptionSection({ isSubscribed, loading }) {
             setSubscription(prev => prev ? { ...prev, status: 'canceled' } : prev);
             setBillingMessage({ type: 'success', text: '구독이 취소되었습니다. 남은 기간까지는 계속 이용 가능합니다.' });
         } catch (err) {
-            setBillingMessage({ type: 'error', text: err.message });
+            setBillingMessage({ type: 'error', text: toKoreanErrorMessage(err, '구독 취소에 실패했습니다. 잠시 후 다시 시도해주세요.') });
         } finally {
             setCanceling(false);
         }
@@ -313,8 +274,8 @@ function SubscriptionSection({ isSubscribed, loading }) {
                     <span style={{ fontSize: 13, color: isSubscribed ? 'var(--success)' : 'var(--text-muted)' }}>
                         {isSubscribed
                             ? (subscription?.status === 'canceled'
-                                ? `구독 취소됨 — ${formatDate(subscription.current_period_end)}까지 PRO 이용 가능`
-                                : `PRO 플랜 이용 중${subscription?.current_period_end ? ` — 다음 결제일 ${formatDate(subscription.current_period_end)}` : ''}`)
+                                ? `구독 취소됨 — ${formatDate(subscription.current_period_end)}까지 ${PLAN_LABELS[planType] || ''} 이용 가능`
+                                : `${PLAN_LABELS[planType] || ''} 플랜 이용 중${subscription?.current_period_end ? ` — 다음 결제일 ${formatDate(subscription.current_period_end)}` : ''}`)
                             : '무료 체험 중 — 일부 기능이 제한됩니다'}
                     </span>
                 </div>
@@ -326,61 +287,22 @@ function SubscriptionSection({ isSubscribed, loading }) {
                 </div>
             )}
 
-            {!isSubscribed && !loading && (
-                <div style={{
-                    display: 'flex', alignItems: 'flex-start', gap: 10,
-                    padding: '12px 14px', borderRadius: 10, marginBottom: 16,
-                    background: 'var(--bg-secondary)', border: '1px solid var(--border)',
-                }}>
-                    <span
-                        onClick={() => setAgreedToRecurring(v => !v)}
-                        style={{
-                            width: 18, height: 18, borderRadius: 4, flexShrink: 0, marginTop: 1,
-                            border: agreedToRecurring ? 'none' : '1.5px solid var(--border)',
-                            background: agreedToRecurring ? 'var(--accent)' : 'transparent',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'pointer', transition: 'all 0.15s',
-                        }}
-                    >
-                        {agreedToRecurring && (
-                            <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
-                                <path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                        )}
-                    </span>
-                    <label onClick={() => setAgreedToRecurring(v => !v)} style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.7, cursor: 'pointer' }}>
-                        <strong style={{ color: 'var(--text-primary)' }}>[필수] 정기결제 및 자동갱신 안내에 동의합니다.</strong>
-                        <br />
-                        · 본 구독은 매월 자동으로 갱신되며, 결제일에 등록된 카드로 요금이 자동 청구됩니다.
-                        <br />
-                        · 갱신 예정일 14일 전, 가입 시 등록하신 이메일로 갱신일·갱신 요금·해지 방법을 안내드립니다.
-                        <br />
-                        · 구독 해지는 이 페이지의 &apos;구독 취소&apos; 버튼으로 언제든 가능하며, 이미 결제한 기간까지는 계속 이용하실 수 있습니다.
-                        <br />
-                        · 요금 인상 또는 무료→유료 전환 시, 최소 30일 전에 별도 안내 후 재동의를 받은 경우에만 적용됩니다.
-                    </label>
-                </div>
-            )}
-
             <div className="bm-grid bm-grid-plan" style={{
                 alignItems: 'center',
                 padding: '18px 20px', borderRadius: 12,
                 background: 'var(--bg-secondary)', border: '1px solid var(--border)',
             }}>
                 <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>PRO 플랜</div>
-                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.9 }}>
-                        <li>네이버 계정 최대 3개 연결</li>
-                        <li>원고 생성 및 자동 발행 무제한</li>
-                        <li>황금키워드 검색 무제한</li>
-                    </ul>
+                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
+                        {isSubscribed ? `${PLAN_LABELS[planType] || ''} 플랜` : '요금제 안내'}
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7 }}>
+                        {isSubscribed
+                            ? '이용 중인 요금제 한도 내에서 모든 기능을 이용하실 수 있습니다.'
+                            : '베이직 · 프로 · 컴퍼니 중 이용 규모에 맞는 요금제를 선택할 수 있습니다.'}
+                    </div>
                 </div>
                 <div className="plan-card-actions" style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-                        {process.env.NEXT_PUBLIC_PORTONE_PRO_PLAN_PRICE
-                            ? `월 ${parseInt(process.env.NEXT_PUBLIC_PORTONE_PRO_PLAN_PRICE, 10).toLocaleString()}원`
-                            : '가격 안내 예정'}
-                    </div>
                     {isSubscribed && subscription?.status === 'active' ? (
                         <button
                             type="button"
@@ -391,19 +313,28 @@ function SubscriptionSection({ isSubscribed, loading }) {
                         >
                             {canceling ? '처리 중...' : '구독 취소'}
                         </button>
-                    ) : (
+                    ) : !isSubscribed && !loading ? (
                         <button
                             type="button"
                             className="btn-primary"
-                            disabled={isSubscribed || subscribing || !agreedToRecurring}
-                            onClick={handleSubscribeClick}
+                            onClick={() => setShowPlanModal(true)}
                             style={{ whiteSpace: 'nowrap' }}
                         >
-                            {isSubscribed ? '구독 중' : subscribing ? '처리 중...' : '구독하기'}
+                            구독하기
                         </button>
-                    )}
+                    ) : null}
                 </div>
             </div>
+
+            <SubscribePlanModal
+                open={showPlanModal}
+                onClose={() => setShowPlanModal(false)}
+                onSubscribed={() => {
+                    setShowPlanModal(false);
+                    setBillingMessage({ type: 'success', text: '구독이 시작되었습니다! 잠시 후 화면이 갱신됩니다.' });
+                    setTimeout(() => window.location.reload(), 1200);
+                }}
+            />
         </div>
     );
 }
@@ -465,7 +396,7 @@ function ProfileEditSection() {
             setLocked(false);
             loadProfile();
         } catch (err) {
-            setVerifyError(err.message);
+            setVerifyError(toKoreanErrorMessage(err));
         } finally {
             setVerifying(false);
         }
@@ -487,10 +418,10 @@ function ProfileEditSection() {
                 .from('profiles')
                 .update({ name: profile.name.trim() || null, phone, birth_date })
                 .eq('id', user.id);
-            if (error) throw error;
+            if (error) throw new Error(toKoreanErrorMessage(error));
             setSaveMessage({ type: 'success', text: '회원정보가 저장되었습니다.' });
         } catch (err) {
-            setSaveMessage({ type: 'error', text: err.message });
+            setSaveMessage({ type: 'error', text: toKoreanErrorMessage(err) });
         } finally {
             setSaving(false);
         }
@@ -506,7 +437,7 @@ function ProfileEditSection() {
             await supabase.auth.signOut();
             window.location.href = '/login?withdrawn=1';
         } catch (err) {
-            setWithdrawError(err.message);
+            setWithdrawError(toKoreanErrorMessage(err, '탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.'));
             setWithdrawing(false);
         }
     };
@@ -720,7 +651,7 @@ function ExtensionTokenSection() {
             .upsert({ user_id: user.id, token_hash: tokenHash }, { onConflict: 'user_id' });
 
         setGenerating(false);
-        if (error) { alert('토큰 발급에 실패했습니다: ' + error.message); return; }
+        if (error) { alert('토큰 발급에 실패했습니다: ' + toKoreanErrorMessage(error)); return; }
         setNewToken(rawToken);
         setHasToken(true);
     };

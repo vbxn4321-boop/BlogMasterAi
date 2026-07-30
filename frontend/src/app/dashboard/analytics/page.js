@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { InlineAlert } from "@/components/ui";
+import OnboardingTour from "@/components/onboarding/OnboardingTour";
+import { analyticsTourSteps } from "@/lib/onboardingSteps";
 
 function RankBadge({ rank }) {
     const color = rank <= 10 ? 'var(--success)' : rank <= 30 ? 'var(--warning)' : 'var(--error)';
@@ -84,7 +86,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* 검색 입력 */}
-            <form onSubmit={handleSearch} style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+            <form data-tour="rank-search-input" onSubmit={handleSearch} style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
                 <input
                     type="text"
                     className="input-field"
@@ -105,7 +107,7 @@ export default function AnalyticsPage() {
 
             {/* 검색 결과 안내 문구 */}
             {searchResults !== null && !isSearching && (
-                <div style={{ marginBottom: 16 }}>
+                <div data-tour="rank-warning-banner" style={{ marginBottom: 16 }}>
                     <InlineAlert type="warning">
                         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <span>⚠️</span>
@@ -167,7 +169,7 @@ export default function AnalyticsPage() {
                     ) : (
                         <div style={{ display: 'grid', gap: 16 }}>
                             {searchResults.map((result, i) => (
-                                <div key={i} className="glass-card" style={{ padding: 24, borderRadius: 12 }}>
+                                <div key={i} {...(i === 0 ? { 'data-tour': 'rank-result-card' } : {})} className="glass-card" style={{ padding: 24, borderRadius: 12 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
 
                                         {/* 왼쪽: 게시글 정보 */}
@@ -212,7 +214,7 @@ export default function AnalyticsPage() {
                                         </div>
 
                                         {/* 오른쪽: 순위 */}
-                                        <div style={{ flexShrink: 0, minWidth: 80, textAlign: 'right' }}>
+                                        <div {...(i === 0 ? { 'data-tour': 'rank-badge' } : {})} style={{ flexShrink: 0, minWidth: 80, textAlign: 'right' }}>
                                             <RankBadge rank={result.rank} />
                                         </div>
                                     </div>
@@ -222,6 +224,8 @@ export default function AnalyticsPage() {
                     )}
                 </>
             )}
+
+            <OnboardingTour pageKey="analytics" steps={analyticsTourSteps} />
         </div>
     );
 }

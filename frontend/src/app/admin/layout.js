@@ -9,6 +9,8 @@ import { useTheme } from "@/lib/ThemeProvider";
 const adminNavItems = [
     { href: '/admin/members', icon: '👥', label: '회원 관리' },
     { href: '/admin/automation', icon: '⏰', label: '자동화' },
+    { href: '/admin/subscriptions', icon: '💳', label: '구독 관리' },
+    { href: '/admin/inquiries', icon: '💬', label: '문의' },
 ];
 
 export default function AdminLayout({ children }) {

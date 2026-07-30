@@ -42,7 +42,7 @@ class AssetManager {
      * @param {string} aspectRatio - e.g. "16:9" or "1:1"
      * @returns {Object} File info
      */
-    async generateImage(prompt, index, aspectRatio = "16:9", model = 'gemini-2.5-flash-image') {
+    async generateImage(prompt, index, aspectRatio = "16:9", model = 'gemini-2.5-flash-image', customStyle = null) {
         const filename = `${config.image.prefix}${String(index).padStart(2, '0')}.${config.image.format}`;
         const filePath = path.join(this.storagePath, filename);
 
@@ -77,7 +77,10 @@ class AssetManager {
             const noTextHint = aspectRatio === "16:9"
                 ? "No text, no letters, no characters, no writing, no watermark, no captions of any kind in the image. "
                 : "";
-            const finalPrompt = ratioHint + noTextHint + prompt;
+            // 계정에 저장된 커스텀 이미지 스타일 조건 — module2_factory.js가 만든 prompt 문장이
+            // 이 스타일을 반영했는지와 무관하게, 실제 이미지 생성 API 호출 시 항상 덧붙여 확정 반영한다.
+            const customStyleHint = customStyle ? ` ${customStyle}` : '';
+            const finalPrompt = ratioHint + noTextHint + prompt + customStyleHint;
 
             const response = await axios.post(url, {
                 contents: [{
@@ -310,7 +313,7 @@ class AssetManager {
     }
 
     async generateAll(imagePrompts, keyword, title, options = {}) {
-        const { image_paths = [], triggerType = 'manual', thumbnailText = null, thumbnailSubText = null, thumbnailStyle = 'bottom_bar', thumbnailTextColor = 'white', thumbnailBgType = 'image', thumbnailBgColor = null, onProgress = null, imageSource = 'gemini' } = options;
+        const { image_paths = [], triggerType = 'manual', thumbnailText = null, thumbnailSubText = null, thumbnailStyle = 'bottom_bar', thumbnailTextColor = 'white', thumbnailBgType = 'image', thumbnailBgColor = null, onProgress = null, imageSource = 'gemini', customImagePrompt = null } = options;
         this.initStorage(keyword, title);
         const results = [];
 
@@ -400,7 +403,7 @@ class AssetManager {
                 if (useGemini) {
                     const aspectRatio = isThumbnailImage ? "1:1" : "16:9";
                     const imageModel = isThumbnailImage ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
-                    result = await this.generateImage(prompt, displayIndex, aspectRatio, imageModel);
+                    result = await this.generateImage(prompt, displayIndex, aspectRatio, imageModel, customImagePrompt);
                     result.source = 'AI';
 
                     // 2~8번 이미지: 16:9 비율로 리사이즈 (AI 기본 출력이 1:1이므로)

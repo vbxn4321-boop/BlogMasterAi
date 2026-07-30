@@ -5,6 +5,18 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/lib/ThemeProvider";
+import { startOnboarding } from "@/components/onboarding/OnboardingTour";
+import InquiryWidget from "@/components/InquiryWidget";
+import CompanyBillingGateModal from "@/components/CompanyBillingGateModal";
+
+// 온보딩 투어가 정의되어 있는 페이지만 매핑 — 나머지 페이지(설정 등)에서는 버튼을 숨긴다.
+const ONBOARDING_PAGE_KEYS = {
+    '/dashboard': 'dashboard',
+    '/dashboard/accounts': 'accounts',
+    '/dashboard/post': 'post',
+    '/dashboard/keywords': 'keywords',
+    '/dashboard/analytics': 'analytics',
+};
 
 // SVG Icons
 const Icons = {
@@ -51,7 +63,9 @@ export default function DashboardLayout({ children }) {
     const pathname = usePathname();
     const router = useRouter();
     const { isDark, toggleTheme } = useTheme();
+    const onboardingPageKey = ONBOARDING_PAGE_KEYS[pathname];
     const [loading, setLoading] = useState(true);
+    const [needsCompanyBilling, setNeedsCompanyBilling] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(null); // { step, message, percent, postId }
     const [showExtensionBanner, setShowExtensionBanner] = useState(false);
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -71,7 +85,7 @@ export default function DashboardLayout({ children }) {
             }
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('is_admin')
+                .select('is_admin, plan_type')
                 .eq('id', user.id)
                 .single();
 
@@ -80,6 +94,22 @@ export default function DashboardLayout({ children }) {
                 router.push('/admin');
                 return;
             }
+
+            // 컴퍼니로 전환됐지만 아직 카드(빌링키) 등록을 안 한 회원은 결제 전까지 대시보드 진입 차단
+            if (profile?.plan_type === 'company') {
+                const { data: sub } = await supabase
+                    .from('subscriptions')
+                    .select('status')
+                    .eq('user_id', user.id)
+                    .eq('status', 'active')
+                    .maybeSingle();
+                if (!sub) {
+                    setNeedsCompanyBilling(true);
+                    setLoading(false);
+                    return;
+                }
+            }
+
             setLoading(false);
         };
         checkAccess();
@@ -177,6 +207,12 @@ export default function DashboardLayout({ children }) {
 
     if (loading) return null;
 
+    // 결제 전 컴퍼니 회원은 대시보드 화면 전체를 대신해 이 모달만 렌더링 — 결제 완료 전까지는
+    // 네비게이션/사이드바를 포함해 어떤 페이지 콘텐츠도 노출하지 않는다.
+    if (needsCompanyBilling) {
+        return <CompanyBillingGateModal onCompleted={() => setNeedsCompanyBilling(false)} />;
+    }
+
     const uploadBadge = uploadProgress && (
         <span
             className="topnav-upload"
@@ -212,6 +248,11 @@ export default function DashboardLayout({ children }) {
 
                     <div className="topnav-actions">
                         {uploadBadge}
+                        {onboardingPageKey && (
+                            <button onClick={() => startOnboarding(onboardingPageKey)} className="topnav-icon-btn" title="온보딩 다시보기">
+                                💡
+                            </button>
+                        )}
                         <button onClick={toggleTheme} className="topnav-icon-btn" title={isDark ? '라이트 모드' : '다크 모드'}>
                             {isDark ? '☀️' : '🌙'}
                         </button>
@@ -245,6 +286,16 @@ export default function DashboardLayout({ children }) {
                         ))}
                         <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0' }} />
                         {uploadBadge && <div style={{ padding: '4px 14px' }}>{uploadBadge}</div>}
+                        {onboardingPageKey && (
+                            <button
+                                onClick={() => { startOnboarding(onboardingPageKey); setMobileNavOpen(false); }}
+                                className="topnav-link"
+                                style={{ border: 'none', background: 'none', cursor: 'pointer', width: '100%', justifyContent: 'flex-start' }}
+                            >
+                                <span>💡</span>
+                                온보딩 다시보기
+                            </button>
+                        )}
                         <button
                             onClick={toggleTheme}
                             className="topnav-link"
@@ -294,6 +345,8 @@ export default function DashboardLayout({ children }) {
                 )}
                 {children}
             </main>
+
+            <InquiryWidget />
         </div>
     );
 }

@@ -5,6 +5,8 @@ import { StatCard, ResponsiveTable } from '@/components/ui';
 import { displayNaverId } from '@/lib/naver';
 import RecommendationsWidget from './RecommendationsWidget';
 import DemoRecommendationsWidget from './DemoRecommendationsWidget';
+import OnboardingTour from '@/components/onboarding/OnboardingTour';
+import { dashboardTourSteps } from '@/lib/onboardingSteps';
 
 const ROTATE_INTERVAL_MS = 5500;
 
@@ -80,6 +82,7 @@ export default function DashboardClient({ accounts, rankingsByAccount, keywordsB
                 {/* glass-card는 backdrop-filter 때문에 각자 독립된 stacking context를 만들어서,
                     내부 드롭다운에 z-index를 아무리 줘도 뒤에 오는 다른 glass-card(추천 키워드 등)를
                     못 넘어선다. 카드 자체를 열려있을 때만 positioned + z-index로 끌어올려야 한다. */}
+                <div data-tour="dash-account-selector">
                 <StatCard label="연결된 계정" style={{ position: 'relative', zIndex: isOpen ? 10 : 'auto' }}>
                     {accounts.length === 0 ? (
                         <span className="stat-value" style={{ fontSize: 15 }}>등록된 계정 없음</span>
@@ -134,8 +137,10 @@ export default function DashboardClient({ accounts, rankingsByAccount, keywordsB
                         </div>
                     )}
                 </StatCard>
+                </div>
 
                 {/* 최근 발행 키워드 — 선택 계정 기준 (1개씩 자동 순환, 클릭 시 최대 5개 목록) */}
+                <div data-tour="dash-keywords-card">
                 <RotatingStatCard
                     label="최근 발행 키워드"
                     items={keywords}
@@ -156,8 +161,10 @@ export default function DashboardClient({ accounts, rankingsByAccount, keywordsB
                         </div>
                     )}
                 />
+                </div>
 
                 {/* 상위 노출 포스트 — 선택 계정 기준 (1개씩 자동 순환, 클릭 시 최대 5개 목록) */}
+                <div data-tour="dash-ranking-card">
                 <RotatingStatCard
                     label="상위 노출 포스트"
                     items={rankings.slice(0, 5)}
@@ -187,10 +194,11 @@ export default function DashboardClient({ accounts, rankingsByAccount, keywordsB
                         </div>
                     )}
                 />
+                </div>
             </div>
 
             {/* Recommendations Widget — 선택된 계정 기준 */}
-            <div style={{ maxWidth: 780, margin: '0 auto' }}>
+            <div data-tour="dash-recommendations" style={{ maxWidth: 780, margin: '0 auto' }}>
                 {isSubscribed ? (
                     <RecommendationsWidget account={selectedAccount} />
                 ) : (
@@ -199,7 +207,7 @@ export default function DashboardClient({ accounts, rankingsByAccount, keywordsB
             </div>
 
             {/* Recent Posts Table — 선택된 계정 기준, 실패 글 제외, 상태 컬럼 없음 */}
-            <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div data-tour="dash-recent-posts" className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
                 <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
                     <h2 style={{ fontSize: 18, fontWeight: 700 }}>최근 포스팅</h2>
                 </div>
@@ -222,7 +230,11 @@ export default function DashboardClient({ accounts, rankingsByAccount, keywordsB
                                             <div style={{ fontSize: 11, opacity: 0.8 }}>{new Date(post.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</div>
                                         </td>
                                         <td>
-                                            {post.url ? (
+                                            {post.isPendingSchedule ? (
+                                                <span style={{ color: 'var(--warning)', fontSize: 13, fontWeight: 600 }} title={`예약 시각: ${new Date(post.scheduledAt).toLocaleString('ko-KR')}`}>
+                                                    예약됨 · {new Date(post.scheduledAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            ) : post.url ? (
                                                 <a href={post.url} target="_blank" rel="noopener noreferrer"
                                                     style={{ color: 'var(--accent)', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
                                                     블로그 보기 →
@@ -242,6 +254,8 @@ export default function DashboardClient({ accounts, rankingsByAccount, keywordsB
                     </div>
                 )}
             </div>
+
+            <OnboardingTour pageKey="dashboard" steps={dashboardTourSteps} />
         </>
     );
 }
