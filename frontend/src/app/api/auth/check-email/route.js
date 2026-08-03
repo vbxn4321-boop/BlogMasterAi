@@ -1,16 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 
-// service_role 키는 서버사이드에서만 사용 (클라이언트에 노출 안 됨)
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const DEFAULT_SUPABASE_URL = 'https://nozklukqqjgrebufgpoq.supabase.co';
+
+function getSupabaseAdmin() {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || 'dummy-key-for-build';
+    return createClient(url, key);
+}
 
 export async function POST(req) {
     try {
         const { email } = await req.json();
         if (!email) return Response.json({ error: 'email required' }, { status: 400 });
 
+        const supabaseAdmin = getSupabaseAdmin();
         const { data, error } = await supabaseAdmin
             .from('profiles')
             .select('id')
