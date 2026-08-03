@@ -10,6 +10,7 @@
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "npm run build --workspace=frontend",
     "build:frontend": "npm run build --workspace=frontend",
     "install:all": "npm install --workspace=backend && npm install --workspace=frontend"
   },
