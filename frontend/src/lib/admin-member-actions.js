@@ -4,19 +4,20 @@ import { createClient as createServerSupabaseClient } from './supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { toKoreanErrorMessage } from './errorMessage';
 
-// service_role 키로 RLS를 우회해 관리자가 전체 회원의 결제 내역/컴퍼니 설정을 읽고 쓸 수 있게 한다.
-// 쓰기 전에 반드시 requireAdmin()으로 호출자가 실제 관리자인지 검증한다.
-const supabaseAdmin = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const DEFAULT_SUPABASE_URL = 'https://nozklukqqjgrebufgpoq.supabase.co';
+
+function getSupabaseAdmin() {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || 'dummy-key-for-build';
+    return createServiceClient(url, key);
+}
 
 async function requireAdmin() {
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('로그인이 필요합니다.');
 
-    const { data: profile } = await supabaseAdmin
+    const { data: profile } = await getSupabaseAdmin()
         .from('profiles').select('is_admin').eq('id', user.id).single();
     if (!profile?.is_admin) throw new Error('관리자만 접근할 수 있습니다.');
 
@@ -28,12 +29,12 @@ export async function getMemberDetail(userId) {
     await requireAdmin();
 
     const [{ data: profile, error: profileErr }, { data: payments, error: paymentsErr }] = await Promise.all([
-        supabaseAdmin
+        getSupabaseAdmin()
             .from('profiles')
             .select('id, email, plan_type, override_price, override_max_naver_accounts, override_max_prompts, created_at')
             .eq('id', userId)
             .single(),
-        supabaseAdmin
+        getSupabaseAdmin()
             .from('subscription_payments')
             .select('id, amount, status, failure_reason, portone_payment_id, created_at')
             .eq('user_id', userId)
@@ -60,7 +61,7 @@ export async function setCompanyPlan(userId, { price, max_naver_accounts, max_pr
     if (!Number.isInteger(maxAccNum) || maxAccNum < 1) throw new Error('등록 가능 계정 수는 1 이상의 정수여야 합니다.');
     if (!Number.isInteger(maxPromptNum) || maxPromptNum < 0) throw new Error('등록 가능 프롬프트 수는 0 이상의 정수여야 합니다.');
 
-    const { error } = await supabaseAdmin
+    const { error } = await getSupabaseAdmin()
         .from('profiles')
         .update({
             plan_type: 'company',

@@ -4,20 +4,20 @@ import { createClient as createServerSupabaseClient } from './supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { toKoreanErrorMessage } from './errorMessage';
 
-// service_role 키는 서버에서만 사용 — RLS(auth.uid()=user_id)를 우회해서 관리자가
-// 다른 회원의 telegram_schedule_settings 행을 읽고 쓸 수 있게 한다.
-// 대신 아래 requireAdmin()으로 호출자가 실제 관리자인지 먼저 검증한다.
-const supabaseAdmin = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const DEFAULT_SUPABASE_URL = 'https://nozklukqqjgrebufgpoq.supabase.co';
+
+function getSupabaseAdmin() {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || 'dummy-key-for-build';
+    return createServiceClient(url, key);
+}
 
 async function requireAdmin() {
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('로그인이 필요합니다.');
 
-    const { data: profile } = await supabaseAdmin
+    const { data: profile } = await getSupabaseAdmin()
         .from('profiles').select('is_admin').eq('id', user.id).single();
     if (!profile?.is_admin) throw new Error('관리자만 접근할 수 있습니다.');
 
@@ -28,13 +28,13 @@ async function requireAdmin() {
 export async function listMembers() {
     await requireAdmin();
 
-    const { data: profiles, error } = await supabaseAdmin
+    const { data: profiles, error } = await getSupabaseAdmin()
         .from('profiles')
         .select('id, email, plan_type, telegram_chat_id, created_at')
         .order('created_at', { ascending: false });
     if (error) throw new Error(toKoreanErrorMessage(error));
 
-    const { data: accountRows } = await supabaseAdmin.from('naver_accounts').select('user_id');
+    const { data: accountRows } = await getSupabaseAdmin().from('naver_accounts').select('user_id');
     const countMap = {};
     (accountRows || []).forEach(a => { countMap[a.user_id] = (countMap[a.user_id] || 0) + 1; });
 
@@ -45,7 +45,7 @@ export async function listMembers() {
 export async function listMembersForAutomation() {
     await requireAdmin();
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await getSupabaseAdmin()
         .from('profiles')
         .select('id, email')
         .order('email', { ascending: true });
@@ -58,9 +58,9 @@ export async function getMemberAutomationData(userId) {
     await requireAdmin();
 
     const [{ data: accounts, error: accErr }, { data: settings, error: setErr }, { data: slots, error: slotErr }] = await Promise.all([
-        supabaseAdmin.from('naver_accounts').select('id, naver_id, concept').eq('user_id', userId),
-        supabaseAdmin.from('telegram_schedule_settings').select('*').eq('user_id', userId).maybeSingle(),
-        supabaseAdmin.from('telegram_schedule_slots').select('*').eq('user_id', userId).order('time'),
+        getSupabaseAdmin().from('naver_accounts').select('id, naver_id, concept').eq('user_id', userId),
+        getSupabaseAdmin().from('telegram_schedule_settings').select('*').eq('user_id', userId).maybeSingle(),
+        getSupabaseAdmin().from('telegram_schedule_slots').select('*').eq('user_id', userId).order('time'),
     ]);
     if (accErr) throw new Error(toKoreanErrorMessage(accErr));
     if (setErr) throw new Error(toKoreanErrorMessage(setErr));
@@ -76,19 +76,19 @@ export async function getMemberAutomationData(userId) {
  * 그대로 남아있어서 최소한 무해하다.
  */
 async function replaceSlots(userId, slots) {
-    const { data: oldSlots } = await supabaseAdmin.from('telegram_schedule_slots').select('id').eq('user_id', userId);
+    const { data: oldSlots } = await getSupabaseAdmin().from('telegram_schedule_slots').select('id').eq('user_id', userId);
     const oldIds = (oldSlots || []).map(s => s.id);
 
     if (slots?.length) {
         const rows = slots.map(s => ({
             user_id: userId, mode: s.mode, enabled: s.enabled, time: s.time, message_template: s.message_template,
         }));
-        const { error: insErr } = await supabaseAdmin.from('telegram_schedule_slots').insert(rows);
+        const { error: insErr } = await getSupabaseAdmin().from('telegram_schedule_slots').insert(rows);
         if (insErr) throw new Error(toKoreanErrorMessage(insErr));
     }
 
     if (oldIds.length) {
-        const { error: delErr } = await supabaseAdmin.from('telegram_schedule_slots').delete().in('id', oldIds);
+        const { error: delErr } = await getSupabaseAdmin().from('telegram_schedule_slots').delete().in('id', oldIds);
         if (delErr) throw new Error(toKoreanErrorMessage(delErr));
     }
 }
@@ -96,7 +96,7 @@ async function replaceSlots(userId, slots) {
 export async function saveMemberTelegramSettings(userId, { naver_account_id, default_tone, default_category, default_custom_instructions, default_image_source, slots }) {
     await requireAdmin();
 
-    const { error } = await supabaseAdmin
+    const { error } = await getSupabaseAdmin()
         .from('telegram_schedule_settings')
         .upsert({ user_id: userId, naver_account_id, default_tone, default_category, default_custom_instructions, default_image_source }, { onConflict: 'user_id' });
     if (error) throw new Error(toKoreanErrorMessage(error));
@@ -113,7 +113,7 @@ export async function saveMemberTelegramSettings(userId, { naver_account_id, def
 export async function applyCommonTelegramSettingsToAll({ default_tone, default_category, default_custom_instructions, default_image_source, slots }) {
     await requireAdmin();
 
-    const { data: linkedProfiles, error } = await supabaseAdmin
+    const { data: linkedProfiles, error } = await getSupabaseAdmin()
         .from('profiles')
         .select('id')
         .not('telegram_chat_id', 'is', null);
@@ -123,13 +123,13 @@ export async function applyCommonTelegramSettingsToAll({ default_tone, default_c
     let applied = 0, skipped = 0;
     for (const profile of linkedProfiles) {
         const [{ data: existing }, { data: firstAccount }] = await Promise.all([
-            supabaseAdmin.from('telegram_schedule_settings').select('naver_account_id').eq('user_id', profile.id).maybeSingle(),
-            supabaseAdmin.from('naver_accounts').select('id').eq('user_id', profile.id).limit(1).maybeSingle(),
+            getSupabaseAdmin().from('telegram_schedule_settings').select('naver_account_id').eq('user_id', profile.id).maybeSingle(),
+            getSupabaseAdmin().from('naver_accounts').select('id').eq('user_id', profile.id).limit(1).maybeSingle(),
         ]);
         const naverAccountId = existing?.naver_account_id || firstAccount?.id;
         if (!naverAccountId) { skipped++; continue; }
 
-        const { error: upsertErr } = await supabaseAdmin
+        const { error: upsertErr } = await getSupabaseAdmin()
             .from('telegram_schedule_settings')
             .upsert({ user_id: profile.id, naver_account_id: naverAccountId, default_tone, default_category, default_custom_instructions, default_image_source }, { onConflict: 'user_id' });
         if (upsertErr) { skipped++; continue; }

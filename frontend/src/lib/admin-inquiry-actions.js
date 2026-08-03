@@ -4,19 +4,20 @@ import { createClient as createServerSupabaseClient } from './supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { toKoreanErrorMessage } from './errorMessage';
 
-// service_role 키로 RLS를 우회해 관리자가 전체 회원의 문의를 읽고 답변할 수 있게 한다.
-// 쓰기 전에 반드시 requireAdmin()으로 호출자가 실제 관리자인지 검증한다.
-const supabaseAdmin = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const DEFAULT_SUPABASE_URL = 'https://nozklukqqjgrebufgpoq.supabase.co';
+
+function getSupabaseAdmin() {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || 'dummy-key-for-build';
+    return createServiceClient(url, key);
+}
 
 async function requireAdmin() {
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('로그인이 필요합니다.');
 
-    const { data: profile } = await supabaseAdmin
+    const { data: profile } = await getSupabaseAdmin()
         .from('profiles').select('is_admin').eq('id', user.id).single();
     if (!profile?.is_admin) throw new Error('관리자만 접근할 수 있습니다.');
 
@@ -27,7 +28,7 @@ async function requireAdmin() {
 export async function listInquiries() {
     await requireAdmin();
 
-    const { data: inquiries, error } = await supabaseAdmin
+    const { data: inquiries, error } = await getSupabaseAdmin()
         .from('inquiries')
         .select('id, user_id, message, status, created_at, replied_at')
         .order('created_at', { ascending: false });
@@ -35,7 +36,7 @@ export async function listInquiries() {
 
     const userIds = [...new Set((inquiries || []).map(i => i.user_id))];
     const { data: profiles } = userIds.length
-        ? await supabaseAdmin.from('profiles').select('id, email').in('id', userIds)
+        ? await getSupabaseAdmin().from('profiles').select('id, email').in('id', userIds)
         : { data: [] };
     const emailById = Object.fromEntries((profiles || []).map(p => [p.id, p.email]));
 
@@ -46,14 +47,14 @@ export async function listInquiries() {
 export async function getInquiry(id) {
     await requireAdmin();
 
-    const { data: inquiry, error } = await supabaseAdmin
+    const { data: inquiry, error } = await getSupabaseAdmin()
         .from('inquiries')
         .select('id, user_id, message, status, admin_reply, replied_at, created_at')
         .eq('id', id)
         .single();
     if (error) throw new Error(toKoreanErrorMessage(error));
 
-    const { data: profile } = await supabaseAdmin
+    const { data: profile } = await getSupabaseAdmin()
         .from('profiles').select('email').eq('id', inquiry.user_id).single();
 
     return { ...inquiry, user_email: profile?.email || '알 수 없음' };
@@ -68,7 +69,7 @@ export async function replyToInquiry(id, replyText) {
     const trimmed = (replyText || '').trim();
     if (!trimmed) throw new Error('답변 내용을 입력해주세요.');
 
-    const { error } = await supabaseAdmin
+    const { error } = await getSupabaseAdmin()
         .from('inquiries')
         .update({
             admin_reply: trimmed,
@@ -84,6 +85,6 @@ export async function replyToInquiry(id, replyText) {
 export async function deleteInquiry(id) {
     await requireAdmin();
 
-    const { error } = await supabaseAdmin.from('inquiries').delete().eq('id', id);
+    const { error } = await getSupabaseAdmin().from('inquiries').delete().eq('id', id);
     if (error) throw new Error(toKoreanErrorMessage(error));
 }
