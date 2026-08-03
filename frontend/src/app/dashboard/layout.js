@@ -165,11 +165,11 @@ export default function DashboardLayout({ children }) {
     useEffect(() => {
         const poll = async () => {
             try {
-                // 진행 중인 포스트 조회 (pending, generating, posting)
+                // 진행 중인 포스트 조회 (pending, generating, posting, pending_extension)
                 const { data: activePosts } = await supabase
                     .from('posts')
                     .select('id, status, error_message')
-                    .in('status', ['pending', 'generating', 'posting'])
+                    .in('status', ['pending', 'generating', 'posting', 'pending_extension'])
                     .order('created_at', { ascending: false })
                     .limit(1);
 

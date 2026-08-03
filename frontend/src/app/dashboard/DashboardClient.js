@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { StatCard, ResponsiveTable } from '@/components/ui';
 import { displayNaverId } from '@/lib/naver';
 import RecommendationsWidget from './RecommendationsWidget';
@@ -223,24 +224,41 @@ export default function DashboardClient({ accounts, rankingsByAccount, keywordsB
                             </thead>
                             <tbody>
                                 {posts.map((post) => (
-                                    <tr key={post.postId}>
-                                        <td style={{ fontWeight: 500 }}>{post.title}</td>
+                                    <tr key={post.postId} style={{ cursor: 'pointer' }}>
+                                        <td style={{ fontWeight: 500 }}>
+                                            <Link href={`/dashboard/post?id=${post.postId}`} style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>
+                                                {post.title}
+                                            </Link>
+                                        </td>
                                         <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>
                                             <div>{new Date(post.createdAt).toLocaleDateString('ko-KR')}</div>
                                             <div style={{ fontSize: 11, opacity: 0.8 }}>{new Date(post.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</div>
                                         </td>
                                         <td>
                                             {post.isPendingSchedule ? (
-                                                <span style={{ color: 'var(--warning)', fontSize: 13, fontWeight: 600 }} title={`예약 시각: ${new Date(post.scheduledAt).toLocaleString('ko-KR')}`}>
+                                                <Link href={`/dashboard/post?id=${post.postId}`} style={{ color: 'var(--warning)', fontSize: 13, fontWeight: 600, textDecoration: 'none' }} title={`예약 시각: ${new Date(post.scheduledAt).toLocaleString('ko-KR')}`}>
                                                     예약됨 · {new Date(post.scheduledAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                </span>
+                                                </Link>
                                             ) : post.url ? (
-                                                <a href={post.url} target="_blank" rel="noopener noreferrer"
-                                                    style={{ color: 'var(--accent)', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
-                                                    블로그 보기 →
-                                                </a>
+                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                    <a href={post.url} target="_blank" rel="noopener noreferrer"
+                                                        style={{ color: 'var(--accent)', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
+                                                        블로그 보기 →
+                                                    </a>
+                                                    <Link href={`/dashboard/post?id=${post.postId}`} style={{ color: 'var(--text-muted)', fontSize: 12, textDecoration: 'none' }}>
+                                                        (상세)
+                                                    </Link>
+                                                </div>
                                             ) : (
-                                                <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>처리 대기 중</span>
+                                                <Link href={`/dashboard/post?id=${post.postId}`}
+                                                    style={{
+                                                        color: 'var(--warning)', background: 'rgba(234, 179, 8, 0.12)',
+                                                        border: '1px solid rgba(234, 179, 8, 0.3)', padding: '4px 10px',
+                                                        borderRadius: 6, fontSize: 12, fontWeight: 600, textDecoration: 'none',
+                                                        display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer'
+                                                    }}>
+                                                    처리 대기 중 🔍
+                                                </Link>
                                             )}
                                         </td>
                                     </tr>

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSubscription } from "@/hooks/useSubscription";
 import { DEMO_ACCOUNT, DEMO_DRAFT } from "@/lib/trial";
 import { displayNaverId } from "@/lib/naver";
@@ -372,7 +372,7 @@ const TOPIC_GROUPS = [
     }
 ];
 
-export default function NewPostPage() {
+function NewPostContent() {
     const { isSubscribed, loading: subLoading } = useSubscription();
     const [showGateModal, setShowGateModal] = useState(false);
     const [accounts, setAccounts] = useState([]);
@@ -564,6 +564,9 @@ export default function NewPostPage() {
     const DRAFT_KEY = 'blog_draft_state';
     const isDraftLoaded = useRef(false);
 
+    const searchParams = useSearchParams();
+    const urlPostId = searchParams.get('id');
+
     // 마운트 시 localStorage에 저장된 진행 중 포스트 복원
     useEffect(() => {
         try {
@@ -572,7 +575,7 @@ export default function NewPostPage() {
             const session = JSON.parse(saved);
             if (!session?.currentPostId) return;
             // 진행 중 상태일 때만 복원
-            const activeStatuses = ['pending', 'scheduled', 'generating', 'posting'];
+            const activeStatuses = ['pending', 'scheduled', 'generating', 'posting', 'pending_extension'];
             if (session.realtimePost && activeStatuses.includes(session.realtimePost.status)) {
                 setCurrentPostId(session.currentPostId);
                 setRealtimePost(session.realtimePost);
@@ -584,10 +587,59 @@ export default function NewPostPage() {
         } catch (_) {}
     }, []);
 
+    // URL 파라미터(?id=...)로 전달된 포스트 로드 — 최근 포스팅 목록에서 클릭 시 해당 워크스페이스 상태 복원
+    useEffect(() => {
+        if (!urlPostId) return;
+
+        const loadPostFromUrl = async () => {
+            try {
+                const res = await fetch(`/api/posts/${urlPostId}/status`);
+                if (!res.ok) return;
+                const data = await res.json();
+                setCurrentPostId(urlPostId);
+                setRealtimePost(data);
+
+                if (data.progress) {
+                    setProgressLogs([{ ...data.progress, timestamp: new Date().toISOString() }]);
+                }
+
+                // 백엔드에 저장된 원고(title, content, hashtags 등)가 있으면 미리보기 카드로 즉시 대입
+                if (data.content_json && (data.content_json.title || data.content_json.content)) {
+                    const loadedPreview = {
+                        _pre_generated: true,
+                        title: data.content_json.title || data.topic || '',
+                        body: data.content_json.content || data.content_json.body || '',
+                        hashtags: data.content_json.hashtags || [],
+                        image_prompts: data.content_json.image_prompts || [],
+                        thumbnail_text: data.content_json.thumbnail_text || null,
+                        thumbnail_sub_text: data.content_json.thumbnail_sub_text || null,
+                        seo_stats: data.content_json.seo_guidelines || {},
+                        media_meta: data.content_json.media_meta || null,
+                    };
+                    setPreviews([loadedPreview]);
+                    setActivePreviewIdx(0);
+                }
+
+                if (data.topic) {
+                    const cleanTopic = data.topic.split('|||')[0];
+                    setForm(f => ({ ...f, topic: cleanTopic, main_keyword: cleanTopic }));
+                }
+
+                if (data.naver_account_id) {
+                    setForm(f => ({ ...f, naver_account_id: data.naver_account_id }));
+                }
+            } catch (e) {
+                console.error('[Load Post From URL Error]', e);
+            }
+        };
+
+        loadPostFromUrl();
+    }, [urlPostId]);
+
     // 진행 중인 포스트 상태를 localStorage에 저장
     useEffect(() => {
         if (!currentPostId) return;
-        const activeStatuses = ['pending', 'scheduled', 'generating', 'posting'];
+        const activeStatuses = ['pending', 'scheduled', 'generating', 'posting', 'pending_extension'];
         if (realtimePost && ['success', 'failed'].includes(realtimePost.status)) {
             localStorage.removeItem(POST_SESSION_KEY);
             return;
@@ -882,6 +934,18 @@ export default function NewPostPage() {
         setProgressLogs([]);
         setProcessingStartTime(Date.now());
     }, [realtimePost?.status, postQueue]);
+
+    // 확장프로그램 대기 중(80%)일 때 크롬 익스텐션으로 즉시 폴링 메시지(BLOGMASTER_POLL_NOW)를 발송하여 Service Worker를 깨움
+    useEffect(() => {
+        if (realtimePost?.status !== 'pending_extension') return;
+
+        const triggerPoll = () => {
+            window.postMessage({ type: 'BLOGMASTER_POLL_NOW' }, '*');
+        };
+        triggerPoll();
+        const interval = setInterval(triggerPoll, 3000);
+        return () => clearInterval(interval);
+    }, [realtimePost?.status]);
 
     const handleReset = () => {
         setPreviews([]);
@@ -3390,6 +3454,14 @@ export default function NewPostPage() {
                 }
             `}</style>
         </div>
+    );
+}
+
+export default function NewPostPage() {
+    return (
+        <Suspense fallback={null}>
+            <NewPostContent />
+        </Suspense>
     );
 }
 

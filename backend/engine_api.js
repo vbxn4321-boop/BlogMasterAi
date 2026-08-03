@@ -1837,7 +1837,22 @@ app.get('/api/extension/jobs', extensionAuthMiddleware, async (req, res) => {
         query = query.or(`extension_device_id.eq.${deviceId},extension_device_id.is.null`);
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+
+    // device_id 조건으로 결과가 없으면 해당 유저의 모든 pending_extension 포스트 반환 (디바이스 ID 미스매치로 인한 80% 정체 방지)
+    if (!error && (!data || data.length === 0) && deviceId) {
+        const fallback = await supabase
+            .from('posts')
+            .select('id, topic, status, content_json, scheduled_at, created_at, extension_device_id, naver_accounts(naver_id)')
+            .eq('user_id', req.user.id)
+            .eq('status', 'pending_extension')
+            .order('created_at', { ascending: true });
+        if (fallback.data && fallback.data.length > 0) {
+            console.log('[Extension Jobs] Fallback used due to device_id mismatch. Found jobs:', fallback.data.length);
+            data = fallback.data;
+        }
+    }
+
     console.log('[Extension Jobs] result count:', data?.length, 'error:', error?.message);
     if (error) return res.status(500).json({ error: error.message });
     res.json({ jobs: data || [] });

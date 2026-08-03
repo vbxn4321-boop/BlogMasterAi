@@ -100,6 +100,17 @@ function stopPolling() {
   console.log('[BG] Polling stopped');
 }
 
+let currentJobTabId = null;
+
+// Tab closure cleanup: if the automation tab is closed manually, reset activeJobId immediately
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  if (tabId === currentJobTabId) {
+    console.log('[BG] Active automation tab was closed. Clearing activeJob lock.');
+    currentJobTabId = null;
+    await set({ activeJobId: null, activeJobStartTime: null });
+  }
+});
+
 // ── Main poll function ───────────────────────────────────────
 async function poll() {
   let { apiUrl, accessToken, activeJobId, activeJobStartTime } = await get([
@@ -109,9 +120,20 @@ async function poll() {
   if (!apiUrl || !accessToken) return;
 
   if (activeJobId) {
-    const isOrphaned = !activeJobStartTime || (Date.now() - activeJobStartTime > 8 * 60 * 1000);
+    let tabExists = false;
+    if (currentJobTabId) {
+      try {
+        await chrome.tabs.get(currentJobTabId);
+        tabExists = true;
+      } catch (_) {
+        tabExists = false;
+      }
+    }
+
+    const isOrphaned = !activeJobStartTime || (Date.now() - activeJobStartTime > 3 * 60 * 1000) || (currentJobTabId && !tabExists);
     if (isOrphaned) {
-      console.log('[BG] Orphaned activeJobId detected, clearing:', activeJobId);
+      console.log('[BG] Orphaned activeJobId detected (tabExists:', tabExists, '), clearing:', activeJobId);
+      currentJobTabId = null;
       await set({ activeJobId: null, activeJobStartTime: null });
     } else {
       console.log('[BG] Skipping poll — job already active:', activeJobId);
@@ -204,7 +226,9 @@ async function processJob(job, apiUrl, accessToken) {
   let tab;
   try {
     tab = await chrome.tabs.create({ url: writeUrl, active: true });
+    currentJobTabId = tab.id;
   } catch (e) {
+    currentJobTabId = null;
     await reportDone(job.id, { success: false, error: `탭 생성 실패: ${e.message}` }, apiUrl, accessToken);
     return;
   }
@@ -218,6 +242,7 @@ async function processJob(job, apiUrl, accessToken) {
   } catch (e) {
     console.warn('[BG] Debugger attach failed:', e.message);
     await chrome.tabs.remove(tab.id).catch(() => {});
+    currentJobTabId = null;
     await reportDone(job.id, { success: false, error: `디버거 연결 실패: ${e.message}` }, apiUrl, accessToken);
     return;
   }
@@ -233,6 +258,7 @@ async function processJob(job, apiUrl, accessToken) {
   try { await evalInTab(tab.id, () => { window.onbeforeunload = null; }); } catch (_) {}
   try { await chrome.debugger.detach({ tabId: tab.id }); } catch (_) {}
   await chrome.tabs.remove(tab.id).catch(() => {});
+  currentJobTabId = null;
   await reportDone(job.id, result, apiUrl, accessToken);
 }
 
@@ -266,6 +292,7 @@ async function reportDone(jobId, result, apiUrl, accessToken) {
   } catch (e) {
     console.warn('[BG] Report done failed:', e.message);
   }
+  currentJobTabId = null;
   await set({ activeJobId: null, activeJobStartTime: null });
   console.warn('[BG] Job done:', jobId, result.success ? '성공' : '실패', result.error || '');
 }

@@ -43,4 +43,15 @@ window.addEventListener('message', (event) => {
       window.postMessage({ type: 'BLOGMASTER_NAVER_LOGIN_STATUS', loggedIn: false, contextInvalidated: true }, '*');
     }
   }
+
+  if (event.data?.type === 'BLOGMASTER_POLL_NOW') {
+    try {
+      chrome.runtime.sendMessage({ type: 'POLL_NOW' }, () => {
+        if (chrome.runtime.lastError) {
+          // Context invalidated
+        }
+      });
+    } catch (e) {}
+  }
 });
+
