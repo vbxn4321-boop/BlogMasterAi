@@ -450,31 +450,57 @@ export default function DashboardLayout({ children }) {
                             ✕
                         </button>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                             <span style={{ fontSize: 24 }}>🧩</span>
                             <h3 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>크롬 확장프로그램 설치 방법</h3>
                         </div>
 
+                        {/* Critical Warning Callout */}
+                        <div style={{
+                            background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.35)',
+                            borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 13.5, color: '#ef4444',
+                            display: 'flex', alignItems: 'center', gap: 10
+                        }}>
+                            <span style={{ fontSize: 20 }}>⚠️</span>
+                            <div>
+                                <strong>필수 체크: 다운로드 받은 .zip 파일은 반드시 압축을 풀어주셔야 합니다!</strong><br />
+                                <span style={{ fontSize: 12, opacity: 0.9 }}>압축을 푼 폴더(내부에 manifest.json 파일이 있는 폴더)를 Chrome에 등록해야 정상 작동합니다.</span>
+                            </div>
+                        </div>
+
                         <ol style={{ paddingLeft: 20, margin: '0 0 24px', fontSize: 14, lineHeight: 1.7, color: 'var(--text-secondary, #cbd5e1)' }}>
-                            <li style={{ marginBottom: 12 }}>
-                                <strong>압축파일 다운로드</strong><br />
-                                상단 <code>[확장프로그램 다운로드]</code> 버튼을 클릭해 <code>blogmaster-extension.zip</code> 파일을 받으신 후 <strong>압축을 풀어주세요.</strong>
+                            <li style={{ marginBottom: 20 }}>
+                                <strong>1. 압축파일 다운로드 및 압축 해제</strong><br />
+                                상단 <code>[확장프로그램 다운로드]</code> 버튼을 클릭해 <code>blogmaster-extension.zip</code> 파일을 다운로드 받은 후 <u>반드시 압축을 풀어주세요.</u>
                             </li>
-                            <li style={{ marginBottom: 12 }}>
-                                <strong>크롬 확장프로그램 페이지 이동</strong><br />
+
+                            <li style={{ marginBottom: 20 }}>
+                                <strong>2. 크롬 확장프로그램 페이지 이동</strong><br />
                                 Chrome 브라우저 주소창에 <code>chrome://extensions</code> 를 입력하고 이동합니다.
+                                <div style={{ marginTop: 8, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border, #334155)' }}>
+                                    <img src="/chrome extensions.jpg" alt="chrome://extensions 이동" style={{ width: '100%', display: 'block' }} />
+                                </div>
                             </li>
-                            <li style={{ marginBottom: 12 }}>
-                                <strong>개발자 모드 활성화</strong><br />
-                                우측 상단의 <strong>[개발자 모드]</strong> 스위치를 켜주세요.
+
+                            <li style={{ marginBottom: 20 }}>
+                                <strong>3. 개발자 모드 활성화</strong><br />
+                                확장프로그램 페이지 우측 상단의 <strong>[개발자 모드]</strong> 스위치를 켜주세요.
+                                <div style={{ marginTop: 8, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border, #334155)' }}>
+                                    <img src="/개발자모드.jpg" alt="개발자모드 켜기" style={{ width: '100%', display: 'block' }} />
+                                </div>
                             </li>
-                            <li style={{ marginBottom: 12 }}>
-                                <strong>압축해제된 확장 프로그램 로드</strong><br />
-                                좌측 상단 <strong>[압축해제된 확장 프로그램을 로드합니다]</strong> 버튼을 클릭하고, 1번에서 압축 해제한 폴더를 선택합니다.
+
+                            <li style={{ marginBottom: 20 }}>
+                                <strong>4. 압축해제된 확장 프로그램 로드</strong><br />
+                                좌측 상단 <strong>[압축해제된 확장 프로그램을 로드합니다]</strong> 버튼을 클릭한 뒤, 1번 단계에서 <strong>압축 해제한 폴더</strong>를 선택합니다.
+                                <div style={{ marginTop: 8, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border, #334155)' }}>
+                                    <img src="/확장프로그램.jpg" alt="압축해제된 확장 프로그램 로드" style={{ width: '100%', display: 'block' }} />
+                                </div>
                             </li>
+
                             <li>
-                                <strong>연결 완료!</strong><br />
-                                설치 완료 후 블로그 마스터 웹사이트를 새로고침하면 확장프로그램이 자동으로 연결됩니다.
+                                <strong>5. 연결 완료!</strong><br />
+                                설치 완료 후 블로그 마스터 대시보드 페이지를 새로고침(F5)하시면 확장프로그램이 자동으로 연결됩니다.
                             </li>
                         </ol>
 
