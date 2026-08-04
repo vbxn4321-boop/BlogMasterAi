@@ -462,7 +462,7 @@ export default function HomePage() {
               하루 3~4시간 걸리던 블로그 운영을 <strong style={{ color:"#10b981" }}>3분</strong>으로 단축합니다.
             </p>
             <div style={{ display:"flex",gap:12,flexWrap:"wrap",marginBottom:56 }}>
-              <Link href="/signup" className="hero-cta-primary" style={{ textDecoration:"none",background:"linear-gradient(135deg, #1b4332, #2d6a4f)",color:"#fff",fontSize:16,fontWeight:800,padding:"16px 36px",borderRadius:14,boxShadow:"0 4px 24px rgba(27,67,50,0.4)",transition:"transform 0.2s, box-shadow 0.2s" }}>무료로 시작하기 →</Link>
+              <Link href="/signup" className="hero-cta-primary" style={{ textDecoration:"none",background:"linear-gradient(135deg, #1b4332, #2d6a4f)",color:"#fff",fontSize:16,fontWeight:800,padding:"16px 36px",borderRadius:14,boxShadow:"0 4px 24px rgba(27,67,50,0.4)",transition:"transform 0.2s, box-shadow 0.2s" }}>무료체험하기 →</Link>
               <button onClick={()=>scrollTo("process")} style={{ background:"transparent",border:"1px solid rgba(255,255,255,0.2)",color:"#d6d3d1",fontSize:16,fontWeight:700,padding:"16px 32px",borderRadius:14,cursor:"pointer",transition:"all 0.2s" }}>작동 방식 보기</button>
             </div>
             <div style={{ display:"flex",gap:48,flexWrap:"wrap" }}>
@@ -657,7 +657,7 @@ export default function HomePage() {
                 <span style={{ fontSize:13,color:"var(--text-muted)" }}>/월</span>
                 <span style={{ fontSize:11,color:"var(--text-muted)",marginLeft:4 }}>(VAT 별도)</span>
               </div>
-              <Link href="/signup" className="pricing-btn-outline" style={{ display:"block",textAlign:"center",textDecoration:"none",padding:"14px 0",borderRadius:12,border:"2px solid var(--accent)",color:"var(--accent)",fontWeight:800,fontSize:15,marginBottom:32,transition:"all 0.2s ease" }}>시작하기</Link>
+              <Link href="/signup" className="pricing-btn-outline" style={{ display:"block",textAlign:"center",textDecoration:"none",padding:"14px 0",borderRadius:12,border:"2px solid var(--accent)",color:"var(--accent)",fontWeight:800,fontSize:15,marginBottom:32,transition:"all 0.2s ease" }}>무료체험하기</Link>
               <ul style={{ listStyle:"none",display:"flex",flexDirection:"column",gap:14 }}>
                 {["네이버 아이디 1개","커스텀 프롬프트 1개","원고 생성 무제한","자동 발행 무제한","SEO 순위 추적","황금 키워드 분석"].map((f,i)=>(
                   <li key={i} style={{ display:"flex",alignItems:"center",gap:10,fontSize:14,color:"var(--text-secondary)" }}><span style={{ color:"#10b981",fontWeight:900 }}>✓</span> {f}</li>
@@ -674,7 +674,7 @@ export default function HomePage() {
                 <span style={{ fontSize:13,color:"var(--text-muted)" }}>/월</span>
                 <span style={{ fontSize:11,color:"var(--text-muted)",marginLeft:4 }}>(VAT 별도)</span>
               </div>
-              <Link href="/signup" style={{ display:"block",textAlign:"center",textDecoration:"none",padding:"14px 0",borderRadius:12,background:"linear-gradient(135deg, #1b4332, #2d6a4f)",color:"#fff",fontWeight:800,fontSize:15,marginBottom:32,boxShadow:"0 4px 16px rgba(27,67,50,0.3)",transition:"all 0.2s ease" }}>Pro로 시작하기</Link>
+              <Link href="/signup" style={{ display:"block",textAlign:"center",textDecoration:"none",padding:"14px 0",borderRadius:12,background:"linear-gradient(135deg, #1b4332, #2d6a4f)",color:"#fff",fontWeight:800,fontSize:15,marginBottom:32,boxShadow:"0 4px 16px rgba(27,67,50,0.3)",transition:"all 0.2s ease" }}>무료체험하기</Link>
               <ul style={{ listStyle:"none",display:"flex",flexDirection:"column",gap:14 }}>
                 {[["네이버 아이디 3개",true],["아이디당 커스텀 프롬프트 3개",true],["원고 생성 무제한",false],["자동 발행 무제한",false],["SEO 순위 추적",false],["황금 키워드 분석",false],["멀티 계정 동시 운영",true]].map(([f,hl],i)=>(
                   <li key={i} style={{ display:"flex",alignItems:"center",gap:10,fontSize:14,color:hl?"var(--text-primary)":"var(--text-secondary)",fontWeight:hl?700:400 }}><span style={{ color:"#10b981",fontWeight:900 }}>✓</span> {f}</li>
@@ -728,7 +728,7 @@ export default function HomePage() {
             블로그 운영, 이제<br/><span style={{ background:"linear-gradient(135deg, #1b4332, #10b981)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>AI에게 맡기세요</span>
           </h2>
           <p style={{ fontSize:16,color:"var(--text-secondary)",lineHeight:1.8,marginBottom:44 }}>반복적인 원고 작성, 이미지 제작, 발행 작업에서 벗어나<br/>전략과 기획에만 집중할 수 있습니다.</p>
-          <Link href="/signup" style={{ textDecoration:"none",background:"linear-gradient(135deg, #1b4332, #2d6a4f)",color:"#fff",fontSize:17,fontWeight:800,padding:"18px 48px",borderRadius:14,display:"inline-block",boxShadow:"0 4px 24px rgba(27,67,50,0.3)",transition:"transform 0.2s, box-shadow 0.2s" }}>무료로 시작하기 →</Link>
+          <Link href="/signup" style={{ textDecoration:"none",background:"linear-gradient(135deg, #1b4332, #2d6a4f)",color:"#fff",fontSize:17,fontWeight:800,padding:"18px 48px",borderRadius:14,display:"inline-block",boxShadow:"0 4px 24px rgba(27,67,50,0.3)",transition:"transform 0.2s, box-shadow 0.2s" }}>무료체험하기 →</Link>
         </div>
       </section>
 
