@@ -12,8 +12,17 @@ export async function POST(req) {
 
         const [{ data: account }, { data: profile }] = await Promise.all([
             supabase.from('naver_accounts').select('*').eq('id', naver_account_id).single(),
-            supabase.from('profiles').select('gemini_api_key').eq('id', user.id).single(),
+            supabase.from('profiles').select('gemini_api_key, plan_type, free_trial_count').eq('id', user.id).single(),
         ]);
+
+        const isSubscribed = ['basic', 'pro', 'company'].includes(profile?.plan_type);
+        const freeTrialCount = profile?.free_trial_count ?? 3;
+
+        if (!isSubscribed && freeTrialCount <= 0) {
+            return NextResponse.json({
+                error: '무료 체험 3회를 모두 사용하셨습니다. 정기 결제 플랜을 구독하고 무제한으로 사용해보세요!'
+            }, { status: 403 });
+        }
 
         let engineTopic = body.topic;
         if (body.trigger_type === 'url_reference') engineTopic = body.reference_url;
@@ -63,6 +72,15 @@ export async function POST(req) {
         }
 
         const { preview_id } = await response.json();
+
+        // 비구독자이면 무료 체험 횟수 1회 차감
+        if (!isSubscribed && freeTrialCount > 0 && user?.id) {
+            await supabase
+                .from('profiles')
+                .update({ free_trial_count: Math.max(0, freeTrialCount - 1) })
+                .eq('id', user.id);
+        }
+
         return NextResponse.json({ preview_id });
 
     } catch (err) {

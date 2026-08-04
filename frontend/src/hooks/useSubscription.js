@@ -15,6 +15,7 @@ export function useSubscription() {
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [planType, setPlanType] = useState(null);
     const [maxNaverAccounts, setMaxNaverAccounts] = useState(0);
+    const [freeTrialCount, setFreeTrialCount] = useState(3);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -27,12 +28,13 @@ export function useSubscription() {
             }
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('plan_type, override_max_naver_accounts')
+                .select('plan_type, override_max_naver_accounts, free_trial_count')
                 .eq('id', user.id)
                 .single();
 
             const plan = profile?.plan_type || null;
             setPlanType(plan);
+            setFreeTrialCount(profile?.free_trial_count ?? 3);
             const subscribed = PAID_PLAN_TYPES.includes(plan);
             setIsSubscribed(subscribed);
 
@@ -56,5 +58,5 @@ export function useSubscription() {
         check();
     }, []);
 
-    return { isSubscribed, planType, maxNaverAccounts, loading };
+    return { isSubscribed, planType, maxNaverAccounts, freeTrialCount, setFreeTrialCount, loading };
 }

@@ -373,7 +373,7 @@ const TOPIC_GROUPS = [
 ];
 
 function NewPostContent() {
-    const { isSubscribed, loading: subLoading } = useSubscription();
+    const { isSubscribed, freeTrialCount, loading: subLoading } = useSubscription();
     const [showGateModal, setShowGateModal] = useState(false);
     const [accounts, setAccounts] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -991,6 +991,10 @@ function NewPostContent() {
     };
 
     const handlePreview = async () => {
+        if (!isSubscribed && freeTrialCount <= 0) {
+            setShowGateModal(true);
+            return;
+        }
         if (!form.topic && form.trigger_type === 'manual') {
             setError('주제가 되는 내용을 입력해 주세요.');
             return;
@@ -1396,6 +1400,44 @@ function NewPostContent() {
                     <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
                         AI와 실시간으로 소통하며 완벽한 네이버 블로그 포스팅을 완성하세요.
                     </p>
+                    {!isSubscribed && (
+                        <div style={{
+                            marginTop: 8,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '6px 14px',
+                            borderRadius: 20,
+                            background: freeTrialCount > 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                            border: freeTrialCount > 0 ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: freeTrialCount > 0 ? '#10b981' : '#ef4444'
+                        }}>
+                            <span>🎁 무료 체험 혜택</span>
+                            <span>·</span>
+                            <span>남은 원고 생성 횟수: {freeTrialCount}회 / 3회</span>
+                            {freeTrialCount <= 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowGateModal(true)}
+                                    style={{
+                                        marginLeft: 6,
+                                        padding: '3px 10px',
+                                        borderRadius: 12,
+                                        background: 'linear-gradient(135deg, #1b4332, #2d6a4f)',
+                                        color: '#fff',
+                                        border: 'none',
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    무제한 플랜 구독하기 →
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
                 {(previews.length > 0 || form.topic || form.main_keyword) && (
                     <button type="button" className="btn-secondary" onClick={handleReset}
@@ -3449,6 +3491,7 @@ function NewPostContent() {
                     50% { opacity: 0.5; }
                 }
             `}</style>
+            <SubscriptionGateModal open={showGateModal} onClose={() => setShowGateModal(false)} />
         </div>
     );
 }
