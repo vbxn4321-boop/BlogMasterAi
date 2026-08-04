@@ -657,7 +657,7 @@ export default function HomePage() {
                 <span style={{ fontSize:13,color:"var(--text-muted)" }}>/월</span>
                 <span style={{ fontSize:11,color:"var(--text-muted)",marginLeft:4 }}>(VAT 별도)</span>
               </div>
-              <Link href="/signup" className="pricing-btn-outline" style={{ display:"block",textAlign:"center",textDecoration:"none",padding:"14px 0",borderRadius:12,border:"2px solid var(--accent)",color:"var(--accent)",fontWeight:800,fontSize:15,marginBottom:32,transition:"all 0.2s ease" }}>무료체험하기</Link>
+              <Link href="/signup" className="pricing-btn-outline" style={{ display:"block",textAlign:"center",textDecoration:"none",padding:"14px 0",borderRadius:12,border:"2px solid var(--accent)",color:"var(--accent)",fontWeight:800,fontSize:15,marginBottom:32,transition:"all 0.2s ease" }}>시작하기</Link>
               <ul style={{ listStyle:"none",display:"flex",flexDirection:"column",gap:14 }}>
                 {["네이버 아이디 1개","커스텀 프롬프트 1개","원고 생성 무제한","자동 발행 무제한","SEO 순위 추적","황금 키워드 분석"].map((f,i)=>(
                   <li key={i} style={{ display:"flex",alignItems:"center",gap:10,fontSize:14,color:"var(--text-secondary)" }}><span style={{ color:"#10b981",fontWeight:900 }}>✓</span> {f}</li>
@@ -674,7 +674,7 @@ export default function HomePage() {
                 <span style={{ fontSize:13,color:"var(--text-muted)" }}>/월</span>
                 <span style={{ fontSize:11,color:"var(--text-muted)",marginLeft:4 }}>(VAT 별도)</span>
               </div>
-              <Link href="/signup" style={{ display:"block",textAlign:"center",textDecoration:"none",padding:"14px 0",borderRadius:12,background:"linear-gradient(135deg, #1b4332, #2d6a4f)",color:"#fff",fontWeight:800,fontSize:15,marginBottom:32,boxShadow:"0 4px 16px rgba(27,67,50,0.3)",transition:"all 0.2s ease" }}>무료체험하기</Link>
+              <Link href="/signup" style={{ display:"block",textAlign:"center",textDecoration:"none",padding:"14px 0",borderRadius:12,background:"linear-gradient(135deg, #1b4332, #2d6a4f)",color:"#fff",fontWeight:800,fontSize:15,marginBottom:32,boxShadow:"0 4px 16px rgba(27,67,50,0.3)",transition:"all 0.2s ease" }}>Pro로 시작하기</Link>
               <ul style={{ listStyle:"none",display:"flex",flexDirection:"column",gap:14 }}>
                 {[["네이버 아이디 3개",true],["아이디당 커스텀 프롬프트 3개",true],["원고 생성 무제한",false],["자동 발행 무제한",false],["SEO 순위 추적",false],["황금 키워드 분석",false],["멀티 계정 동시 운영",true]].map(([f,hl],i)=>(
                   <li key={i} style={{ display:"flex",alignItems:"center",gap:10,fontSize:14,color:hl?"var(--text-primary)":"var(--text-secondary)",fontWeight:hl?700:400 }}><span style={{ color:"#10b981",fontWeight:900 }}>✓</span> {f}</li>
