@@ -42,7 +42,9 @@ function LoginForm() {
             .eq('id', data.user.id)
             .single();
 
-        window.location.href = profile?.is_admin ? "/admin" : "/dashboard";
+        const targetRedirect = searchParams.get("redirect");
+        const defaultDestination = profile?.is_admin ? "/admin" : "/dashboard";
+        window.location.href = targetRedirect || defaultDestination;
     };
 
     return (

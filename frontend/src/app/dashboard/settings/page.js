@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useSubscription } from "@/hooks/useSubscription";
 import { SectionHeader, InlineAlert, Modal } from "@/components/ui";
@@ -212,7 +213,15 @@ function SubscriptionSection({ isSubscribed, planType, loading }) {
     const [billingMessage, setBillingMessage] = useState({ type: '', text: '' });
     const [subscription, setSubscription] = useState(null);
     const [showPlanModal, setShowPlanModal] = useState(false);
+    const searchParams = useSearchParams();
+    const targetPlan = searchParams.get('plan');
     const supabase = createClient();
+
+    useEffect(() => {
+        if (targetPlan && !isSubscribed && !loading) {
+            setShowPlanModal(true);
+        }
+    }, [targetPlan, isSubscribed, loading]);
 
     useEffect(() => {
         if (!isSubscribed) { setSubscription(null); return; }
