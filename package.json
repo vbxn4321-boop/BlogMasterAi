@@ -21,5 +21,9 @@
     "puppeteer@24.43.0": true,
     "sharp@0.34.5": true,
     "unrs-resolver@1.11.1": true
+  },
+  "dependencies": {
+    "lightningcss": "^1.33.0",
+    "lightningcss-win32-x64-msvc": "^1.33.0"
   }
 }

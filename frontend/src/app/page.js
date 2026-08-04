@@ -594,10 +594,10 @@ export default function HomePage() {
             {[
               { icon:"✍️",title:"AI 원고 자동 생성",desc:"SEO에 최적화된 블로그 원고를 작성합니다. 키워드 밀도, 문단 구조, 인용구 배치까지 자동으로.",points:["키워드 분석 → 원고 자동 작성","네이버 SEO 가이드라인 준수","말투·톤 커스터마이징"],gradient:"linear-gradient(135deg, #1b4332, #2d6a4f)" },
               { icon:"🖼️",title:"이미지·썸네일 자동 생성",desc:"본문에 어울리는 AI 이미지를 생성하고 썸네일에 텍스트를 자동으로 합성합니다.",points:["AI 이미지 생성","Sharp 썸네일 텍스트 합성","4가지 썸네일 스타일 선택"],gradient:"linear-gradient(135deg, #2d6a4f, #40916c)" },
-              { icon:"🚀",title:"네이버 블로그 자동 발행",desc:"Chrome 확장 프로그램이 네이버 스마트에디터를 직접 조작해 실제 발행합니다.",points:["스마트에디터 자동 조작","예약 발행 스케줄링","멀티 계정 동시 운영"],gradient:"linear-gradient(135deg, #40916c, #52b788)" },
+              { icon:"🚀",title:"네이버 블로그 자동 발행",desc:"Chrome 확장 프로그램이 스마트에디터를 직접 조작해 발행합니다. 인간의 타이핑 패턴(휴먼 타이핑)과 자연스러운 딜레이 기술을 적용하여 어뷰징 감지 및 저품질 리스크를 완벽하게 방지합니다.",points:["스마트에디터 자동 조작 & 휴먼 타이핑","어뷰징·저품질 차단 기술 적용","예약 발행 스케줄링 & 멀티 계정"],gradient:"linear-gradient(135deg, #40916c, #52b788)" },
               { icon:"📊",title:"SEO 순위 실시간 추적",desc:"발행된 포스팅이 네이버 검색에서 몇 위인지 자동으로 체크하고 변화를 기록합니다.",points:["상위 200위 내 자동 탐색","일별 순위 변화 기록","키워드별 직접 검색 분석"],gradient:"linear-gradient(135deg, #10b981, #059669)" },
               { icon:"🔑",title:"황금 키워드 분석",desc:"경쟁도 낮고 조회수 높은 키워드를 자동으로 발굴합니다.",points:["조회수·경쟁 자동 분석","연관 키워드 발굴","월간 검색량 기준 필터링"],gradient:"linear-gradient(135deg, #f59e0b, #d97706)" },
-              { icon:"⚡",title:"Chrome 확장 프로그램 발행",desc:"서버 자동화 대신 내 PC 브라우저로 직접 발행. 네이버 봇 감지 없이 안전합니다.",points:["내 브라우저 직접 제어","캡차 우회 없이 안전 발행","실시간 발행 로그 확인"],gradient:"linear-gradient(135deg, #ef4444, #dc2626)" },
+              { icon:"⚡",title:"Chrome 확장 프로그램 발행",desc:"서버 자동화 대신 내 PC 브라우저로 직접 발행. 사람처럼 자연스럽게 타이핑하여 봇 감지나 계정 차단 없이 안전합니다.",points:["내 브라우저 직접 제어 & 휴먼 타이핑","캡차·저품질 리스크 없이 안전 발행","실시간 발행 진행 로그 확인"],gradient:"linear-gradient(135deg, #ef4444, #dc2626)" },
             ].map((f,i)=>(
               <div key={i} className="feature-card" style={{ padding:32,background:"var(--bg-card)",borderRadius:20,border:"1px solid var(--border)",transition:"transform 0.3s ease, box-shadow 0.3s ease",cursor:"default" }}>
                 <div style={{ width:48,height:48,borderRadius:14,background:f.gradient,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:20,boxShadow:"0 4px 16px rgba(0,0,0,0.12)" }}>{f.icon}</div>
