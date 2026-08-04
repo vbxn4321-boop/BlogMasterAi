@@ -490,10 +490,10 @@ async function sendKey(tabId, key, code, keyCode, modifiers = 0) {
 // ════════════════════════════════════════════════════════════
 function parseBlocks(content) {
   const tokens = [];
-  // AI가 생성한 오염된 [/<B>] 또는 [IMAGEANCHOR1] 태그 자동 정제
+  // AI가 생성한 오염된 [/<B>], [/</B>], [/\<B>] 등의 B 태그 완벽 정제
   let remaining = (content || '')
-    .replace(/\[\/\s*<?\s*B\s*>?\s*\]/gi, '[/B]')
-    .replace(/\[\s*<?\s*B\s*>?\s*\]/gi, '[B]')
+    .replace(/\[\/\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '[/B]')
+    .replace(/\[\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '[B]')
     .replace(/\[IMAGE_?ANCHOR_?(\d+)\]/gi, '[IMAGE_ANCHOR_$1]')
     .replace(/\[\/?(QUOTEANCHOR\d*|IMAGEQUOTE\d*|QUOTEIMAGE\d*)\]/gi, '');
   // AI가 프롬프트 지시를 어기고 마크다운 불릿(줄 앞 *, - )으로 목록을 쓴 경우, 그대로 타이핑하면

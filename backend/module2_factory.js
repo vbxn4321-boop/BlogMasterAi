@@ -417,10 +417,10 @@ ${footerText}
             content = content.split(header)[0].trim();
         }
 
-        // AI가 [/B] 대신 [/] 또는 [/<B>], [/\<B>], [/B>] 등을 잘못 생성하는 경우 자동 수정
+        // AI가 [/B] 대신 [/] 또는 [/<B>], [/</B>], [/\<B>], [/B>] 등을 잘못 생성하는 경우 자동 수정
         content = content.replace(/\[\/\]/g, '[/B]');
-        content = content.replace(/\[\/\s*<?\s*B\s*>?\s*\]/gi, '[/B]');
-        content = content.replace(/\[\s*<?\s*B\s*>?\s*\]/gi, '[B]');
+        content = content.replace(/\[\/\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '[/B]');
+        content = content.replace(/\[\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '[B]');
 
         // AI가 [IMAGEANCHOR1], [IMAGE_ANCHOR1], [IMAGEANCHOR_1] 등 언더스코어가 빠진 이미지 태그 표준화
         content = content.replace(/\[IMAGE_?ANCHOR_?(\d+)\]/gi, '[IMAGE_ANCHOR_$1]');
