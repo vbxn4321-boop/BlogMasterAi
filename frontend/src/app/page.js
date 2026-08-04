@@ -483,16 +483,44 @@ export default function HomePage() {
 
       {/* ═══ PAIN POINT ═══ */}
       <section style={{ padding:"80px 24px 0" }}>
-        <div style={{ maxWidth:800,margin:"0 auto",textAlign:"center" }}>
+        <div style={{ maxWidth:920,margin:"0 auto",textAlign:"center" }}>
           <div style={{ fontSize:13,fontWeight:800,color:"var(--accent)",letterSpacing:2,textTransform:"uppercase",marginBottom:16 }}>이런 고민, 있으시죠?</div>
-          <h2 style={{ fontSize:"clamp(24px,3.2vw,38px)",fontWeight:900,letterSpacing:"-1px",lineHeight:1.3,marginBottom:48 }}>블로그 하나 운영하는데<br/>왜 이렇게 시간이 오래 걸릴까?</h2>
-          <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))",gap:20 }}>
-            {[{emoji:"😩",text:"원고 한 편 쓰는데 2시간"},{emoji:"🎨",text:"이미지·썸네일 따로 만들기"},{emoji:"📋",text:"복사-붙여넣기 수동 발행"},{emoji:"📉",text:"순위 확인은 매번 직접 검색"}].map((item,i)=>(
-              <div key={i} className="pain-card" style={{ padding:"28px 20px",borderRadius:16,background:"var(--bg-secondary)",border:"1px solid var(--border)",textAlign:"center",transition:"transform 0.2s ease, box-shadow 0.2s ease" }}>
-                <div style={{ fontSize:36,marginBottom:12 }}>{item.emoji}</div>
-                <div style={{ fontSize:15,fontWeight:700,color:"var(--text-primary)" }}>{item.text}</div>
+          <h2 style={{ fontSize:"clamp(24px,3.2vw,38px)",fontWeight:900,letterSpacing:"-1px",lineHeight:1.3,marginBottom:16 }}>
+            블로그 포스팅 1개 쓰는데<br/>무려 <span style={{ color:"#ef4444" }}>3시간 20분</span>이 사라집니다
+          </h2>
+          <p style={{ fontSize:15,color:"var(--text-secondary)",marginBottom:40 }}>
+            원고 작성부터 썸네일 제작, 발행, 순위 체크까지... 매일 반복되는 수동 작업의 시간 부담
+          </p>
+
+          <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(160px, 1fr))",gap:16,marginBottom:32 }}>
+            {[
+              { step:"01", icon:"🔍", title:"키워드 탐색", time:"30분", desc:"경쟁도·조회수 수동 분석" },
+              { step:"02", icon:"✍️", title:"SEO 원고 작성", time:"90분", desc:"구조 잡고 본문 4,000자 작성" },
+              { step:"03", icon:"🖼️", title:"이미지·썸네일", time:"40분", desc:"이미지 찾고 포토샵 편집" },
+              { step:"04", icon:"🚀", title:"네이버 수동 발행", time:"20분", desc:"복사-붙여넣기 및 스마트에디터" },
+              { step:"05", icon:"📊", title:"검색 순위 추적", time:"20분", desc:"매일 직접 검색해서 확인" },
+            ].map((item,i)=>(
+              <div key={i} className="pain-card" style={{ padding:"24px 16px",borderRadius:16,background:"var(--bg-secondary)",border:"1px solid var(--border)",textAlign:"center",transition:"transform 0.2s ease, box-shadow 0.2s ease" }}>
+                <div style={{ fontSize:11,fontWeight:800,color:"var(--text-muted)",marginBottom:6 }}>STEP {item.step}</div>
+                <div style={{ fontSize:28,marginBottom:8 }}>{item.icon}</div>
+                <div style={{ fontSize:14,fontWeight:800,color:"var(--text-primary)",marginBottom:4 }}>{item.title}</div>
+                <div style={{ fontSize:16,fontWeight:900,color:"#ef4444",marginBottom:6 }}>{item.time}</div>
+                <div style={{ fontSize:11.5,color:"var(--text-muted)",lineHeight:1.4 }}>{item.desc}</div>
               </div>
             ))}
+          </div>
+
+          {/* 소요 시간 비교 하이라이트 바 */}
+          <div style={{ background:"linear-gradient(135deg, rgba(27,67,50,0.08), rgba(16,185,129,0.12))",border:"1.5px solid rgba(27,67,50,0.25)",borderRadius:20,padding:"24px 32px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:16 }}>
+            <div style={{ textAlign:"left" }}>
+              <div style={{ fontSize:13,fontWeight:700,color:"var(--text-secondary)",marginBottom:4 }}>기존 수동 작업 소요 시간</div>
+              <div style={{ fontSize:22,fontWeight:900,color:"#ef4444",textDecoration:"line-through" }}>총 200분 (3시간 20분)</div>
+            </div>
+            <div style={{ fontSize:28,fontWeight:900,color:"var(--accent)" }}>➔</div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:13,fontWeight:800,color:"#10b981",marginBottom:4 }}>BlogMaster AI 자동화</div>
+              <div style={{ fontSize:28,fontWeight:900,color:"#10b981" }}>단 3분 만에 완료!⚡</div>
+            </div>
           </div>
         </div>
       </section>
@@ -541,7 +569,7 @@ export default function HomePage() {
                 <th style={{ padding:"18px 20px",textAlign:"center",background:"rgba(27,67,50,0.08)",borderBottom:"1px solid var(--border)",fontSize:13,fontWeight:800,color:"#1b4332",width:"36%" }}>BlogMaster AI</th>
               </tr></thead>
               <tbody>
-                {[["발행 방식","API 우회 · 봇 탐지 위험","크롬 확장 프로그램 (실제 사용자 행동)"],["원고 품질","템플릿 반복 · 저품질","Gemini AI 고품질 SEO 원고"],["이미지","직접 업로드 필요","AI 자동 생성 + 텍스트 합성"],["계정 안전성","캡차·차단 리스크 높음","내 PC 브라우저 사용, 차단 없음"],["커스터마이징","제한적 템플릿만 지원","계정별 말투·프롬프트·푸터 개별 설정"],["순위 추적","미지원 또는 별도 구매","기본 제공 · 자동 일별 기록"]].map(([item,old,ours],i)=>(
+                {[["발행 방식","API 우회 · 봇 탐지 위험","크롬 확장 프로그램 (실제 사용자 행동)"],["원고 품질","템플릿 반복 · 저품질","고품질 SEO 맞춤 원고"],["이미지","직접 업로드 필요","AI 자동 생성 + 텍스트 합성"],["계정 안전성","캡차·차단 리스크 높음","내 PC 브라우저 사용, 차단 없음"],["커스터마이징","제한적 템플릿만 지원","계정별 말투·프롬프트·푸터 개별 설정"],["순위 추적","미지원 또는 별도 구매","기본 제공 · 자동 일별 기록"]].map(([item,old,ours],i)=>(
                   <tr key={i} style={{ borderBottom:i<5?"1px solid var(--border)":"none" }}>
                     <td style={{ padding:"16px 20px",fontWeight:700,color:"var(--text-primary)" }}>{item}</td>
                     <td style={{ padding:"16px 20px",textAlign:"center",color:"var(--text-muted)" }}>⚠️ {old}</td>
@@ -564,8 +592,8 @@ export default function HomePage() {
           </div>
           <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(320px, 1fr))",gap:20 }}>
             {[
-              { icon:"✍️",title:"AI 원고 자동 생성",desc:"Gemini AI가 SEO에 최적화된 블로그 원고를 작성합니다. 키워드 밀도, 문단 구조, 인용구 배치까지 자동으로.",points:["키워드 분석 → 원고 자동 작성","네이버 SEO 가이드라인 준수","말투·톤 커스터마이징"],gradient:"linear-gradient(135deg, #1b4332, #2d6a4f)" },
-              { icon:"🖼️",title:"이미지·썸네일 자동 생성",desc:"본문에 어울리는 AI 이미지를 생성하고 썸네일에 텍스트를 자동으로 합성합니다.",points:["Gemini 이미지 생성","Sharp 썸네일 텍스트 합성","4가지 썸네일 스타일 선택"],gradient:"linear-gradient(135deg, #2d6a4f, #40916c)" },
+              { icon:"✍️",title:"AI 원고 자동 생성",desc:"SEO에 최적화된 블로그 원고를 작성합니다. 키워드 밀도, 문단 구조, 인용구 배치까지 자동으로.",points:["키워드 분석 → 원고 자동 작성","네이버 SEO 가이드라인 준수","말투·톤 커스터마이징"],gradient:"linear-gradient(135deg, #1b4332, #2d6a4f)" },
+              { icon:"🖼️",title:"이미지·썸네일 자동 생성",desc:"본문에 어울리는 AI 이미지를 생성하고 썸네일에 텍스트를 자동으로 합성합니다.",points:["AI 이미지 생성","Sharp 썸네일 텍스트 합성","4가지 썸네일 스타일 선택"],gradient:"linear-gradient(135deg, #2d6a4f, #40916c)" },
               { icon:"🚀",title:"네이버 블로그 자동 발행",desc:"Chrome 확장 프로그램이 네이버 스마트에디터를 직접 조작해 실제 발행합니다.",points:["스마트에디터 자동 조작","예약 발행 스케줄링","멀티 계정 동시 운영"],gradient:"linear-gradient(135deg, #40916c, #52b788)" },
               { icon:"📊",title:"SEO 순위 실시간 추적",desc:"발행된 포스팅이 네이버 검색에서 몇 위인지 자동으로 체크하고 변화를 기록합니다.",points:["상위 200위 내 자동 탐색","일별 순위 변화 기록","키워드별 직접 검색 분석"],gradient:"linear-gradient(135deg, #10b981, #059669)" },
               { icon:"🔑",title:"황금 키워드 분석",desc:"경쟁도 낮고 조회수 높은 키워드를 자동으로 발굴합니다.",points:["조회수·경쟁 자동 분석","연관 키워드 발굴","월간 검색량 기준 필터링"],gradient:"linear-gradient(135deg, #f59e0b, #d97706)" },
@@ -626,7 +654,8 @@ export default function HomePage() {
               <div style={{ fontSize:14,color:"var(--text-secondary)",marginBottom:24 }}>블로그 운영을 시작하는 개인 사용자</div>
               <div style={{ display:"flex",alignItems:"baseline",gap:4,marginBottom:32 }}>
                 <span style={{ fontSize:42,fontWeight:900,color:"var(--text-primary)" }}>₩35,000</span>
-                <span style={{ fontSize:14,color:"var(--text-muted)" }}>/월</span>
+                <span style={{ fontSize:13,color:"var(--text-muted)" }}>/월</span>
+                <span style={{ fontSize:11,color:"var(--text-muted)",marginLeft:4 }}>(VAT 별도)</span>
               </div>
               <Link href="/signup" className="pricing-btn-outline" style={{ display:"block",textAlign:"center",textDecoration:"none",padding:"14px 0",borderRadius:12,border:"2px solid var(--accent)",color:"var(--accent)",fontWeight:800,fontSize:15,marginBottom:32,transition:"all 0.2s ease" }}>시작하기</Link>
               <ul style={{ listStyle:"none",display:"flex",flexDirection:"column",gap:14 }}>
@@ -642,7 +671,8 @@ export default function HomePage() {
               <div style={{ fontSize:14,color:"var(--text-secondary)",marginBottom:24 }}>본격적인 블로그 마케팅을 위한 프로 사용자</div>
               <div style={{ display:"flex",alignItems:"baseline",gap:4,marginBottom:32 }}>
                 <span style={{ fontSize:42,fontWeight:900,color:"var(--text-primary)" }}>₩45,000</span>
-                <span style={{ fontSize:14,color:"var(--text-muted)" }}>/월</span>
+                <span style={{ fontSize:13,color:"var(--text-muted)" }}>/월</span>
+                <span style={{ fontSize:11,color:"var(--text-muted)",marginLeft:4 }}>(VAT 별도)</span>
               </div>
               <Link href="/signup" style={{ display:"block",textAlign:"center",textDecoration:"none",padding:"14px 0",borderRadius:12,background:"linear-gradient(135deg, #1b4332, #2d6a4f)",color:"#fff",fontWeight:800,fontSize:15,marginBottom:32,boxShadow:"0 4px 16px rgba(27,67,50,0.3)",transition:"all 0.2s ease" }}>Pro로 시작하기</Link>
               <ul style={{ listStyle:"none",display:"flex",flexDirection:"column",gap:14 }}>
