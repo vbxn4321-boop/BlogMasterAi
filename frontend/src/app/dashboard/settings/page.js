@@ -23,8 +23,6 @@ export default function SettingsPage() {
 
     const supabase = createClient();
 
-    useEffect(() => { loadSettings(); }, []);
-
     const loadSettings = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -40,6 +38,8 @@ export default function SettingsPage() {
         setGeminiApiKey(key);
         setLoading(false);
     };
+
+    useEffect(() => { loadSettings(); }, []);
 
     const handleSave = async (e) => {
         e.preventDefault();

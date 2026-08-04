@@ -89,7 +89,7 @@ export default function TelegramScheduleForm({ value, onChange, accounts = [], s
 
                 {slots.length === 0 && (
                     <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-                        아직 슬롯이 없습니다. "슬롯 추가"로 발송 시각을 만들어주세요.
+                        아직 슬롯이 없습니다. &quot;슬롯 추가&quot;로 발송 시각을 만들어주세요.
                     </p>
                 )}
 
@@ -149,7 +149,7 @@ export default function TelegramScheduleForm({ value, onChange, accounts = [], s
                         />
                         <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
                             {slot.mode === 'suggest'
-                                ? <>{'{keyword}'} 자리에 추천된 키워드가 들어갑니다. "예"를 누르면 그때부터 원고를 생성합니다.</>
+                                ? <>{'{keyword}'} 자리에 추천된 키워드가 들어갑니다. &quot;예&quot;를 누르면 그때부터 원고를 생성합니다.</>
                                 : <>{'{title}'} 자리에 미리 생성된 원고 제목이 들어갑니다. 원고는 미리 다 써두고 승인만 받습니다.</>}
                         </p>
                     </div>

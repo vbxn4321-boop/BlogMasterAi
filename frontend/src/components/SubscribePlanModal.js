@@ -50,7 +50,7 @@ export default function SubscribePlanModal({ open, onClose, onSubscribed }) {
                 storeId: process.env.NEXT_PUBLIC_PORTONE_STORE_ID,
                 channelKey: process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY,
                 billingKeyMethod: 'CARD',
-                issueId: `issue_${user.id}_${Date.now()}`,
+                issueId: `issue_${user.id}_${new Date().getTime()}`,
                 issueName: `${PLAN_LABELS[planKey] || planKey} 플랜 정기결제 카드 등록`,
                 customer: { customerId: user.id, email: user.email || undefined },
             });

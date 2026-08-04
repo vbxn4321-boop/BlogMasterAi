@@ -161,7 +161,7 @@ function PostFullPageMock({ typedTopic }) {
           </div>
           <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:300,color:"#d6d3d1" }}>
             <div style={{ fontSize:40,marginBottom:12 }}>🖋️</div>
-            <div style={{ fontSize:12,textAlign:"center" }}>왼쪽 양식을 작성하고<br/><strong>'원고 생성'</strong> 버튼을 클릭하세요.</div>
+            <div style={{ fontSize:12,textAlign:"center" }}>왼쪽 양식을 작성하고<br/><strong>&apos;원고 생성&apos;</strong> 버튼을 클릭하세요.</div>
           </div>
         </div>
       </div>
@@ -397,12 +397,22 @@ export default function HomePage() {
 
   useEffect(() => { const h = () => setScrolled(window.scrollY > 40); window.addEventListener("scroll", h); return () => window.removeEventListener("scroll", h); }, []);
 
-  const demoStartRef = useRef(Date.now());
-  useEffect(() => { const c = DEMO_STEP_MS * PROCESS_STEPS.length; const t = setInterval(() => { const p = (Date.now()-demoStartRef.current)%c; setDemoStep(Math.floor(p/DEMO_STEP_MS)); setDemoElapsed(p%DEMO_STEP_MS); }, 60); return () => clearInterval(t); }, []);
+  const demoStartRef = useRef(0);
+  useEffect(() => {
+    demoStartRef.current = Date.now();
+    const c = DEMO_STEP_MS * PROCESS_STEPS.length;
+    const t = setInterval(() => { const p = (Date.now()-demoStartRef.current)%c; setDemoStep(Math.floor(p/DEMO_STEP_MS)); setDemoElapsed(p%DEMO_STEP_MS); }, 60);
+    return () => clearInterval(t);
+  }, []);
   const jumpToStep = (i) => { demoStartRef.current = Date.now() - i*DEMO_STEP_MS; setDemoStep(i); setDemoElapsed(0); };
 
-  const heroStartRef = useRef(Date.now());
-  useEffect(() => { const c = HERO_TAB_MS * HERO_TABS.length; const t = setInterval(() => { const p = (Date.now()-heroStartRef.current)%c; setHeroTab(Math.floor(p/HERO_TAB_MS)); setHeroElapsed(p%HERO_TAB_MS); }, 60); return () => clearInterval(t); }, []);
+  const heroStartRef = useRef(0);
+  useEffect(() => {
+    heroStartRef.current = Date.now();
+    const c = HERO_TAB_MS * HERO_TABS.length;
+    const t = setInterval(() => { const p = (Date.now()-heroStartRef.current)%c; setHeroTab(Math.floor(p/HERO_TAB_MS)); setHeroElapsed(p%HERO_TAB_MS); }, 60);
+    return () => clearInterval(t);
+  }, []);
   const jumpHeroTab = (i) => { heroStartRef.current = Date.now() - i*HERO_TAB_MS; setHeroTab(i); setHeroElapsed(0); };
 
   const scrollTo = (id) => { document.getElementById(id)?.scrollIntoView({ behavior: "smooth" }); };
