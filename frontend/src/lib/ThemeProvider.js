@@ -14,6 +14,7 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     const saved = localStorage.getItem('blog-master-theme');
     const dark = saved === 'dark';
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsDark(dark);
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   }, []);
