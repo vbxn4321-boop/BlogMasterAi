@@ -490,8 +490,12 @@ async function sendKey(tabId, key, code, keyCode, modifiers = 0) {
 // ════════════════════════════════════════════════════════════
 function parseBlocks(content) {
   const tokens = [];
-  // AI 할루시네이션 태그 제거 (백엔드 parseOutput 전처리가 없는 경우 대비)
-  let remaining = (content || '').replace(/\[\/?(QUOTEANCHOR\d*|IMAGEQUOTE\d*|QUOTEIMAGE\d*)\]/gi, '');
+  // AI가 생성한 오염된 [/<B>] 또는 [IMAGEANCHOR1] 태그 자동 정제
+  let remaining = (content || '')
+    .replace(/\[\/\s*<?\s*B\s*>?\s*\]/gi, '[/B]')
+    .replace(/\[\s*<?\s*B\s*>?\s*\]/gi, '[B]')
+    .replace(/\[IMAGE_?ANCHOR_?(\d+)\]/gi, '[IMAGE_ANCHOR_$1]')
+    .replace(/\[\/?(QUOTEANCHOR\d*|IMAGEQUOTE\d*|QUOTEIMAGE\d*)\]/gi, '');
   // AI가 프롬프트 지시를 어기고 마크다운 불릿(줄 앞 *, - )으로 목록을 쓴 경우, 그대로 타이핑하면
   // "*"만 단독 줄에 남는 등 어색하게 노출되므로 굵은 점(•)으로 치환해 최소한 목록처럼 보이게 한다.
   remaining = remaining.replace(/^[ \t]*[*-][ \t]+/gm, '• ');
