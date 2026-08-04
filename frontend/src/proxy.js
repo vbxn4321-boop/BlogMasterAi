@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 const DEFAULT_SUPABASE_URL = 'https://nozklukqqjgrebufgpoq.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vemtsdWtxcWpncmVidWZncG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxMTUxNDUsImV4cCI6MjA4NzY5MTE0NX0.9wAppPY6VuMigytiRd37ZMx9bctYPh4tWd6lvUNamdw';
 
-export async function middleware(request) {
+export default async function proxy(request) {
     let supabaseResponse = NextResponse.next({ request });
 
     const supabase = createServerClient(
