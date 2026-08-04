@@ -10,7 +10,7 @@ export async function GET(req, { params }) {
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
         const { id } = await params;
-        const engineUrl = `${process.env.ENGINE_API_URL || 'http://localhost:4000'}/api/posts/preview-status/${id}`;
+        const engineUrl = `${process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app'}/api/posts/preview-status/${id}`;
 
         const response = await fetch(engineUrl, {
             headers: { 'x-engine-secret': process.env.ENGINE_API_SECRET },

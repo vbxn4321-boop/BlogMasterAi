@@ -27,7 +27,7 @@ export async function POST(req) {
         }
 
         // 2. Prepare data for checking Engine
-        const engineUrl = `${process.env.ENGINE_API_URL || 'http://localhost:4000'}/api/posts/preview`;
+        const engineUrl = `${process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app'}/api/posts/preview`;
         console.log(`[Preview Route] Calling Engine: ${engineUrl} for trigger_type: ${trigger_type}`);
         
         const response = await fetch(engineUrl, {

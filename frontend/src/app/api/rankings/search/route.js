@@ -21,7 +21,7 @@ export async function POST(req) {
             return NextResponse.json({ keyword, results: [], total: 0 });
         }
 
-        const engineUrl = `${process.env.ENGINE_API_URL || 'http://localhost:4000'}/api/rankings/keyword-search`;
+        const engineUrl = `${process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app'}/api/rankings/keyword-search`;
 
         const response = await fetch(engineUrl, {
             method: 'POST',

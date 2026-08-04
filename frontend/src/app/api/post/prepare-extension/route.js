@@ -8,8 +8,8 @@ export async function POST(request) {
             return NextResponse.json({ error: 'post_id is required' }, { status: 400 });
         }
 
-        const engineUrl = process.env.ENGINE_API_URL || 'http://localhost:4000';
-        const engineSecret = process.env.ENGINE_API_SECRET;
+        const engineUrl = process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app';
+        const engineSecret = process.env.ENGINE_API_SECRET || 'blog-master-secret-change-me';
 
         console.log(`[Frontend API] Preparing extension post: ${post_id}`);
 

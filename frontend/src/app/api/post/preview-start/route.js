@@ -21,7 +21,7 @@ export async function POST(req) {
             engineTopic = body.category;
         }
 
-        const engineUrl = `${process.env.ENGINE_API_URL || 'http://localhost:4000'}/api/posts/preview-async`;
+        const engineUrl = `${process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app'}/api/posts/preview-async`;
 
         const response = await fetch(engineUrl, {
             method: 'POST',

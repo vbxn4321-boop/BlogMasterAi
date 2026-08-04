@@ -11,7 +11,7 @@ export async function GET(request) {
 
         if (!postId) return NextResponse.json({ error: 'postId required' }, { status: 400 });
 
-        const engineUrl = `${process.env.ENGINE_API_URL || 'http://localhost:4000'}/api/posts/${postId}/status`;
+        const engineUrl = `${process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app'}/api/posts/${postId}/status`;
 
         const response = await fetch(engineUrl, {
             headers: {

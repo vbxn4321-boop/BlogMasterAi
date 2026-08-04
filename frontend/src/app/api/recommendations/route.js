@@ -11,7 +11,7 @@ export async function GET(req) {
         const account_id = searchParams.get('account_id');
         if (!account_id) return NextResponse.json({ error: 'account_id required' }, { status: 400 });
 
-        const engineUrl = `${process.env.ENGINE_API_URL || 'http://localhost:4000'}/api/recommendations?account_id=${account_id}&user_id=${user.id}`;
+        const engineUrl = `${process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app'}/api/recommendations?account_id=${account_id}&user_id=${user.id}`;
 
         const response = await fetch(engineUrl, {
             headers: { 'x-engine-secret': process.env.ENGINE_API_SECRET }

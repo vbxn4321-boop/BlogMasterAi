@@ -8,7 +8,7 @@ export async function POST(req) {
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
         const body = await req.json();
-        const engineUrl = `${process.env.ENGINE_API_URL || 'http://localhost:4000'}/api/rankings/check`;
+        const engineUrl = `${process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app'}/api/rankings/check`;
 
         const response = await fetch(engineUrl, {
             method: 'POST',
