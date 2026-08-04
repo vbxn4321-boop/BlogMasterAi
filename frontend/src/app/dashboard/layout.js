@@ -277,7 +277,7 @@ export default function DashboardLayout({ children }) {
                             title="확장프로그램 설치 가이드 및 다운로드"
                         >
                             <Icons.HelpCircle />
-                            확장프로그램 설치가이드 & 다운로드
+                            확장프로그램 설치
                         </button>
                         {!isSubscribed && (
                             <Link
@@ -343,7 +343,7 @@ export default function DashboardLayout({ children }) {
                             style={{ border: 'none', background: 'none', cursor: 'pointer', width: '100%', justifyContent: 'flex-start', color: '#3b82f6' }}
                         >
                             <span style={{ display: 'flex', alignItems: 'center' }}><Icons.HelpCircle /></span>
-                            설치가이드 & 다운로드
+                            확장프로그램 설치
                         </button>
                         {onboardingPageKey && (
                             <button
