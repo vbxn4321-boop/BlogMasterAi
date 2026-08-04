@@ -103,13 +103,25 @@ export default function OnboardingTour({ pageKey, steps, onEnd }) {
         };
     }, [active, stepIndex, steps]);
 
-    const close = () => setActive(false);
-    const dismissForever = () => {
+    const markAsDismissed = () => {
         try { localStorage.setItem(STORAGE_PREFIX + pageKey, '1'); } catch (_) {}
+    };
+
+    const close = () => {
+        markAsDismissed();
         setActive(false);
     };
+
+    const dismissForever = () => {
+        markAsDismissed();
+        setActive(false);
+    };
+
     const next = () => {
-        if (stepIndex >= steps.length - 1) { close(); return; }
+        if (stepIndex >= steps.length - 1) {
+            close();
+            return;
+        }
         setStepIndex(i => i + 1);
     };
     const prev = () => setStepIndex(i => Math.max(0, i - 1));
