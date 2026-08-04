@@ -101,38 +101,58 @@ export default function SubscribePlanModal({ open, onClose, onSubscribed }) {
             )}
 
             {!plans ? (
-                <div style={{ color: 'var(--text-muted)', fontSize: 14, padding: '20px 0' }}>불러오는 중...</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 14, padding: '30px 0', textAlign: 'center' }}>요금제 정보를 불러오는 중입니다...</div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, marginBottom: 24 }}>
                     {plans.map(plan => {
                         const isCompany = plan.plan_key === 'company';
+                        const isPro = plan.plan_key === 'pro';
                         return (
                             <div key={plan.plan_key} style={{
-                                border: '1px solid var(--border)', borderRadius: 12, padding: 18,
-                                display: 'flex', flexDirection: 'column', gap: 10,
-                                background: 'var(--bg-secondary)',
+                                border: isPro ? '2px solid #10b981' : '1px solid var(--border)',
+                                borderRadius: 16,
+                                padding: 22,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 14,
+                                background: isPro ? 'rgba(16, 185, 129, 0.04)' : 'var(--bg-secondary)',
+                                position: 'relative',
+                                boxShadow: isPro ? '0 8px 24px rgba(16, 185, 129, 0.12)' : 'none',
+                                transition: 'all 0.2s ease',
                             }}>
-                                <div style={{ fontSize: 16, fontWeight: 800 }}>{PLAN_LABELS[plan.plan_key] || plan.plan_key}</div>
-                                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>
+                                {isPro && (
+                                    <div style={{
+                                        position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+                                        background: 'linear-gradient(135deg, #1b4332, #10b981)', color: '#fff',
+                                        padding: '4px 14px', borderRadius: 100, fontSize: 11, fontWeight: 800,
+                                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)', whiteSpace: 'nowrap'
+                                    }}>
+                                        🔥 가장 인기
+                                    </div>
+                                )}
+                                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>
+                                    {PLAN_LABELS[plan.plan_key] || plan.plan_key}
+                                </div>
+                                <div style={{ fontSize: 24, fontWeight: 900, color: isPro ? '#10b981' : 'var(--text-primary)' }}>
                                     {isCompany ? '별도 협의' : (
                                         <>
                                             {(plan.price || 0).toLocaleString()}원
-                                            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}> /월</span>
+                                            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}> /월</span>
                                         </>
                                     )}
                                 </div>
-                                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.8, flex: 1 }}>
-                                    <li>네이버 계정 최대 {plan.max_naver_accounts}개{isCompany ? '~ (협의 가능)' : ''}</li>
-                                    <li>{plan.max_prompts != null ? `개인 프롬프트 최대 ${plan.max_prompts}개` : '개인 프롬프트 (준비 중)'}</li>
-                                    <li>원고 생성 및 자동 발행 무제한</li>
-                                    <li>황금키워드 검색 무제한</li>
+                                <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.9, flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <li style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ color: '#10b981', fontWeight: 900 }}>✓</span> 네이버 계정 최대 {plan.max_naver_accounts}개{isCompany ? '~ (협의 가능)' : ''}</li>
+                                    <li style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ color: '#10b981', fontWeight: 900 }}>✓</span> {plan.max_prompts != null ? `개인 프롬프트 최대 ${plan.max_prompts}개` : '개인 프롬프트 지원'}</li>
+                                    <li style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ color: '#10b981', fontWeight: 900 }}>✓</span> 원고 생성 및 자동 발행 무제한</li>
+                                    <li style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ color: '#10b981', fontWeight: 900 }}>✓</span> 황금키워드 검색 무제한</li>
                                 </ul>
 
                                 {isCompany ? (
                                     <a
                                         href={contactEmail ? `mailto:${contactEmail}?subject=${encodeURIComponent('컴퍼니 요금제 문의')}` : undefined}
                                         className="btn-secondary"
-                                        style={{ textAlign: 'center', textDecoration: 'none', display: 'block' }}
+                                        style={{ textAlign: 'center', textDecoration: 'none', display: 'block', padding: '12px 0', borderRadius: 10, fontWeight: 800 }}
                                     >
                                         문의하기
                                     </a>
@@ -142,7 +162,13 @@ export default function SubscribePlanModal({ open, onClose, onSubscribed }) {
                                         className="btn-primary"
                                         disabled={!!subscribingKey}
                                         onClick={() => handleSubscribe(plan.plan_key)}
-                                        style={{ opacity: subscribingKey && subscribingKey !== plan.plan_key ? 0.5 : 1 }}
+                                        style={{
+                                            padding: '12px 0',
+                                            borderRadius: 10,
+                                            fontWeight: 800,
+                                            background: isPro ? 'linear-gradient(135deg, #1b4332, #2d6a4f)' : 'var(--accent)',
+                                            opacity: subscribingKey && subscribingKey !== plan.plan_key ? 0.5 : 1
+                                        }}
                                     >
                                         {subscribingKey === plan.plan_key ? '처리 중...' : '구독하기'}
                                     </button>

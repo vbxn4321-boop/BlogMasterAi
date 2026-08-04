@@ -1,9 +1,6 @@
-"use client";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
-// 공용 모달 셸 — 기존에 SubscriptionGateModal/키워드 비교 모달/post 워크스페이스 곳곳에서
-// 조금씩 다른 값(오버레이 투명도 0.6~0.75, blur 4~12px)으로 흩어져 있던 오버레이+glass-card
-// 레시피를 하나로 통일한 것. variant="inline"은 fixed 대신 absolute로 띄워 부모 카드
-// 안에서만 오버레이할 때 사용(예: 특정 섹션 위에만 뜨는 비교 모달).
 export default function Modal({
     open,
     onClose,
@@ -12,31 +9,55 @@ export default function Modal({
     maxHeight = '90vh',
     closeOnOverlayClick = true,
     variant = 'fixed',
-    zIndex = 1000,
+    zIndex = 9999,
 }) {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     if (!open) return null;
 
-    return (
+    const modalContent = (
         <div
             style={{
                 position: variant === 'inline' ? 'absolute' : 'fixed',
                 inset: 0,
-                background: 'rgba(10, 15, 30, 0.6)',
-                backdropFilter: 'blur(4px)',
-                WebkitBackdropFilter: 'blur(4px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 16,
+                background: 'rgba(15, 23, 42, 0.45)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 20,
                 zIndex,
             }}
             onClick={closeOnOverlayClick ? onClose : undefined}
         >
             <div
-                className="glass-card"
-                style={{ width, maxWidth: '90vw', maxHeight, overflowY: 'auto', padding: 28, position: 'relative' }}
+                style={{
+                    width,
+                    maxWidth: '92vw',
+                    maxHeight,
+                    overflowY: 'auto',
+                    padding: 32,
+                    position: 'relative',
+                    background: 'var(--bg-card, #ffffff)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 20,
+                    boxShadow: '0 24px 64px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+                }}
                 onClick={e => e.stopPropagation()}
             >
                 {children}
             </div>
         </div>
     );
+
+    if (variant === 'inline' || !mounted) {
+        return modalContent;
+    }
+
+    return createPortal(modalContent, document.body);
 }
