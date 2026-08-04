@@ -468,7 +468,7 @@ function NewPostContent() {
         const loadAccounts = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             const { data: fetched } = await supabase.from('naver_accounts').select('id, naver_id, concept, custom_content_prompt').eq('user_id', user?.id);
-            const data = isSubscribed ? (fetched || []) : [DEMO_ACCOUNT, ...(fetched || [])];
+            const data = fetched || [];
             setAccounts(data);
 
             // 저장된 초안 복원 시도
