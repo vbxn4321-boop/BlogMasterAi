@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/lib/ThemeProvider";
+import { useSubscription } from "@/hooks/useSubscription";
 import { startOnboarding } from "@/components/onboarding/OnboardingTour";
 import InquiryWidget from "@/components/InquiryWidget";
 import CompanyBillingGateModal from "@/components/CompanyBillingGateModal";
@@ -63,6 +64,7 @@ export default function DashboardLayout({ children }) {
     const pathname = usePathname();
     const router = useRouter();
     const { isDark, toggleTheme } = useTheme();
+    const { isSubscribed, freeTrialCount } = useSubscription();
     const onboardingPageKey = ONBOARDING_PAGE_KEYS[pathname];
     const [loading, setLoading] = useState(true);
     const [needsCompanyBilling, setNeedsCompanyBilling] = useState(false);
@@ -248,6 +250,26 @@ export default function DashboardLayout({ children }) {
 
                     <div className="topnav-actions">
                         {uploadBadge}
+                        {!isSubscribed && (
+                            <Link
+                                href="/dashboard/post"
+                                style={{
+                                    textDecoration: 'none',
+                                    fontSize: 12,
+                                    fontWeight: 800,
+                                    padding: '5px 12px',
+                                    borderRadius: 20,
+                                    background: freeTrialCount > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                    border: freeTrialCount > 0 ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                                    color: freeTrialCount > 0 ? '#10b981' : '#ef4444',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4
+                                }}
+                            >
+                                🎁 무료 {freeTrialCount}회 남음
+                            </Link>
+                        )}
                         {onboardingPageKey && (
                             <button onClick={() => startOnboarding(onboardingPageKey)} className="topnav-icon-btn" title="온보딩 다시보기">
                                 💡
