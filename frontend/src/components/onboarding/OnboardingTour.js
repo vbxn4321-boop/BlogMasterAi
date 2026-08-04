@@ -33,12 +33,16 @@ export default function OnboardingTour({ pageKey, steps, onEnd }) {
     // 처음 방문이고 "다시 보지 않기"를 누른 적이 없으면 자동 시작 — 이때도 startOnboarding을
     // 그대로 호출해서, 수동 재시작과 동일한 이벤트 경로를 타게 한다(페이지 쪽 리스너가
     // 자동 시작인지 수동 재시작인지 구분할 필요 없이 항상 반응할 수 있도록).
+    // 처음 방문이고 "다시 보지 않기"를 누른 적이 없으면 자동 시작
     useEffect(() => {
         try {
             if (!localStorage.getItem(STORAGE_PREFIX + pageKey)) {
-                startOnboarding(pageKey);
+                const timer = setTimeout(() => {
+                    startOnboarding(pageKey);
+                }, 600);
+                return () => clearTimeout(timer);
             }
-        } catch (_) { /* localStorage 접근 불가 시 그냥 자동 시작 생략 */ }
+        } catch (_) {}
     }, [pageKey]);
 
     // 사이드바의 "온보딩 다시보기" 등 외부 트리거
@@ -52,25 +56,33 @@ export default function OnboardingTour({ pageKey, steps, onEnd }) {
         return () => window.removeEventListener(ONBOARDING_START_EVENT, handler);
     }, [pageKey]);
 
-    // 스텝이 바뀔 때 "딱 한 번만" 그 요소로 이동한다. smooth 스크롤은 애니메이션 도중
-    // scroll 이벤트가 계속 발생해서, 그 이벤트로 다시 스크롤을 트리거하면(예전 버그) 서로
-    // 되먹임하며 끝나기 전 중간 위치를 측정해버린다 — 그래서 즉시 이동(auto) 후 한 프레임
-    // 뒤에만 위치를 측정한다.
+    // 스텝이 바뀔 때 대상 요소를 탐색한다 (DOM 렌더링 지연 대비 200ms 간격 최대 10회 재시도)
     useEffect(() => {
         if (!active) return;
         const step = steps[stepIndex];
         if (!step) { setActive(false); return; }
-        const el = document.querySelector(`[data-tour="${step.id}"]`);
-        if (!el) {
-            // 지금은 화면에 없는 스텝(조건부 렌더링 등) — 다음 스텝으로 자동 이동
-            if (stepIndex < steps.length - 1) setStepIndex(i => i + 1);
-            else setActive(false);
-            return;
-        }
-        setRect(null); // 이전 스텝 위치가 잠깐이라도 잘못 보이지 않도록 초기화
-        el.scrollIntoView({ block: 'center', behavior: 'auto' });
-        const raf = requestAnimationFrame(() => setRect(el.getBoundingClientRect()));
-        return () => cancelAnimationFrame(raf);
+
+        let attempts = 0;
+        let timer = null;
+
+        const findAndHighlight = () => {
+            const el = document.querySelector(`[data-tour="${step.id}"]`);
+            if (el) {
+                setRect(null);
+                el.scrollIntoView({ block: 'center', behavior: 'auto' });
+                requestAnimationFrame(() => setRect(el.getBoundingClientRect()));
+            } else if (attempts < 10) {
+                attempts++;
+                timer = setTimeout(findAndHighlight, 200);
+            } else {
+                // 10회 재시도 후에도 요소가 없으면 다음 스텝으로 진행
+                if (stepIndex < steps.length - 1) setStepIndex(i => i + 1);
+                else setActive(false);
+            }
+        };
+
+        findAndHighlight();
+        return () => { if (timer) clearTimeout(timer); };
     }, [active, stepIndex, steps]);
 
     // 사용자가 직접 스크롤하거나 창 크기를 바꾸면 위치만 다시 재측정한다 (스크롤을 다시
