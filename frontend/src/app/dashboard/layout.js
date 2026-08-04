@@ -257,9 +257,8 @@ export default function DashboardLayout({ children }) {
 
                     <div className="topnav-actions">
                         {uploadBadge}
-                        <a
-                            href="/blogmaster-extension.zip"
-                            download="blogmaster-extension.zip"
+                        <button
+                            onClick={() => setShowExtensionGuide(true)}
                             style={{
                                 textDecoration: 'none',
                                 fontSize: 12,
@@ -272,21 +271,13 @@ export default function DashboardLayout({ children }) {
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 6,
+                                cursor: 'pointer',
                                 transition: 'all 0.2s ease'
                             }}
-                            title="확장프로그램 다운로드 (.zip)"
-                        >
-                            <Icons.Download />
-                            확장프로그램 다운로드
-                        </a>
-                        <button
-                            onClick={() => setShowExtensionGuide(true)}
-                            className="topnav-icon-btn"
-                            title="확장프로그램 설치/사용 방법"
-                            style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 20, background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+                            title="확장프로그램 설치 가이드 및 다운로드"
                         >
                             <Icons.HelpCircle />
-                            설치 가이드
+                            확장프로그램 설치가이드 & 다운로드
                         </button>
                         {!isSubscribed && (
                             <Link
@@ -346,16 +337,14 @@ export default function DashboardLayout({ children }) {
                         ))}
                         <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0' }} />
                         {uploadBadge && <div style={{ padding: '4px 14px' }}>{uploadBadge}</div>}
-                        <a
-                            href="/blogmaster-extension.zip"
-                            download="blogmaster-extension.zip"
+                        <button
+                            onClick={() => { setShowExtensionGuide(true); setMobileNavOpen(false); }}
                             className="topnav-link"
-                            onClick={() => setMobileNavOpen(false)}
-                            style={{ textDecoration: 'none', color: '#3b82f6' }}
+                            style={{ border: 'none', background: 'none', cursor: 'pointer', width: '100%', justifyContent: 'flex-start', color: '#3b82f6' }}
                         >
-                            <span style={{ display: 'flex', alignItems: 'center' }}><Icons.Download /></span>
-                            확장프로그램 다운로드
-                        </a>
+                            <span style={{ display: 'flex', alignItems: 'center' }}><Icons.HelpCircle /></span>
+                            설치가이드 & 다운로드
+                        </button>
                         {onboardingPageKey && (
                             <button
                                 onClick={() => { startOnboarding(onboardingPageKey); setMobileNavOpen(false); }}
