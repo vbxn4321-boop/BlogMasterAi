@@ -434,6 +434,32 @@ function NewPostContent() {
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     
+    const [currentPostId, setCurrentPostId] = useState(null);
+    const [realtimePost, setRealtimePost] = useState(null);
+    const [progressLogs, setProgressLogs] = useState([]);
+    const [isCancelling, setIsCancelling] = useState(false);
+    const [processingStartTime, setProcessingStartTime] = useState(null);
+    const [isEditingPreview, setIsEditingPreview] = useState(false);
+    const [postQueue, setPostQueue] = useState([]);
+    const executionMode = 'extension';
+    const [thumbnailTextMode, setThumbnailTextMode] = useState(false);
+    const [thumbnailCustomText, setThumbnailCustomText] = useState('');
+    const [thumbnailSubText, setThumbnailSubText] = useState('');
+    const [thumbnailStyle, setThumbnailStyle] = useState('center_text');
+    const [thumbnailBgType, setThumbnailBgType] = useState('image');
+    const [thumbnailBgColor, setThumbnailBgColor] = useState('#8B5CF6');
+    const [thumbnailBlackOverlay, setThumbnailBlackOverlay] = useState(30);
+    const [thumbnailFont, setThumbnailFont] = useState('bold_gothic');
+    const [imageSource, setImageSource] = useState('gemini');
+    const [pexelsModalOpen, setPexelsModalOpen] = useState(false);
+    const [pexelsModalSlot, setPexelsModalSlot] = useState(null);
+    const [pexelsModalTemp, setPexelsModalTemp] = useState(null);
+    const [quoteModalOpen, setQuoteModalOpen] = useState(false);
+
+    const POST_SESSION_KEY = 'blog_post_session';
+    const DRAFT_KEY = 'blog_draft_state';
+    const isDraftLoaded = useRef(false);
+
     const router = useRouter();
     const supabase = createClient();
 
@@ -554,16 +580,6 @@ function NewPostContent() {
         };
     }, [isPresetMenuOpen]);
 
-    const [currentPostId, setCurrentPostId] = useState(null);
-    const [realtimePost, setRealtimePost] = useState(null);
-    const [progressLogs, setProgressLogs] = useState([]);
-    const [isCancelling, setIsCancelling] = useState(false);
-    const [processingStartTime, setProcessingStartTime] = useState(null);
-
-    const POST_SESSION_KEY = 'blog_post_session';
-    const DRAFT_KEY = 'blog_draft_state';
-    const isDraftLoaded = useRef(false);
-
     const searchParams = useSearchParams();
     const urlPostId = searchParams.get('id');
 
@@ -667,26 +683,6 @@ function NewPostContent() {
             localStorage.setItem(DRAFT_KEY, JSON.stringify({ form, previews, activePreviewIdx }));
         } catch (_) {}
     }, [form, previews, activePreviewIdx]);
-
-    const [isEditingPreview, setIsEditingPreview] = useState(false);
-    const [postQueue, setPostQueue] = useState([]); // 발행 대기열
-    // const [executionMode, setExecutionMode] = useState(() => {
-    //     try { return localStorage.getItem('blog_execution_mode') || 'server'; } catch (_) { return 'server'; }
-    // });
-    const executionMode = 'extension';
-    const [thumbnailTextMode, setThumbnailTextMode] = useState(false);
-    const [thumbnailCustomText, setThumbnailCustomText] = useState('');
-    const [thumbnailSubText, setThumbnailSubText] = useState('');
-    const [thumbnailStyle, setThumbnailStyle] = useState('center_text');
-    const [thumbnailBgType, setThumbnailBgType] = useState('image');
-    const [thumbnailBgColor, setThumbnailBgColor] = useState('#8B5CF6');
-    const [thumbnailBlackOverlay, setThumbnailBlackOverlay] = useState(30);
-    const [thumbnailFont, setThumbnailFont] = useState('bold_gothic');
-    const [imageSource, setImageSource] = useState('gemini'); // 'gemini' | 'stock'
-    const [pexelsModalOpen, setPexelsModalOpen] = useState(false);
-    const [pexelsModalSlot, setPexelsModalSlot] = useState(null);
-    const [pexelsModalTemp, setPexelsModalTemp] = useState(null);
-    const [quoteModalOpen, setQuoteModalOpen] = useState(false);
 
     // 온보딩 투어가 "새 포스팅"에서 시작되면, 미리보기/무료 이미지 선택 관련 스텝들이
     // 실제로 화면에 나타나도록 예시 원고 + 예시 Pexels 후보를 미리 채워 넣는다.

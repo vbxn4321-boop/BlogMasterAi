@@ -150,7 +150,7 @@ export default function AnalyticsPage() {
                 <>
                     <div style={{ marginBottom: 16, fontSize: 13, color: 'var(--text-muted)' }}>
                         <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 }}>
-                            "{lastSearched}"
+                            &quot;{lastSearched}&quot;
                         </span>
                         {' '}검색 결과 —{' '}
                         {searchResults.length > 0

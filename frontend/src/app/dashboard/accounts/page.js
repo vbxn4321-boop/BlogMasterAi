@@ -103,8 +103,6 @@ export default function AccountsPage() {
     // 실제 accounts 상태를 그대로 사용해 기존 동작을 바꾸지 않는다.
     const displayAccounts = isSubscribed ? accounts : [DEMO_ACCOUNT, ...accounts];
 
-    useEffect(() => { loadAccounts(); }, []);
-
     const loadAccounts = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         const { data } = await supabase
@@ -115,6 +113,8 @@ export default function AccountsPage() {
         setAccounts(data || []);
         setLoading(false);
     };
+
+    useEffect(() => { loadAccounts(); }, []);
 
     const handleAdd = async (e) => {
         e.preventDefault();
@@ -717,9 +717,9 @@ function FooterEditor({ account, supabase, onSaved, isSubscribed, onGateBlocked 
                                         {[
                                             { value: 'quote_default', label: '따옴표', preview: (
                                                 <div style={{ background: '#f8f8f8', borderRadius: 4, padding: '8px 8px 8px 6px', fontSize: 9, color: '#444', minHeight: 36, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-                                                    <span style={{ fontSize: 16, color: '#888', lineHeight: 1, fontFamily: 'Georgia, serif', display: 'block' }}>"</span>
+                                                    <span style={{ fontSize: 16, color: '#888', lineHeight: 1, fontFamily: 'Georgia, serif', display: 'block' }}>&quot;</span>
                                                     <span style={{ lineHeight: 1.4 }}>인용 내용</span>
-                                                    <span style={{ fontSize: 16, color: '#888', lineHeight: 1, fontFamily: 'Georgia, serif', display: 'block', alignSelf: 'flex-end' }}>"</span>
+                                                    <span style={{ fontSize: 16, color: '#888', lineHeight: 1, fontFamily: 'Georgia, serif', display: 'block', alignSelf: 'flex-end' }}>&quot;</span>
                                                 </div>
                                             )},
                                             { value: 'quote_vertical', label: '버티컬 라인', preview: (
@@ -737,7 +737,7 @@ function FooterEditor({ account, supabase, onSaved, isSubscribed, onGateBlocked 
                                             )},
                                             { value: 'quote_line_quotation', label: '라인&따옴표', preview: (
                                                 <div style={{ background: '#f8f8f8', borderRadius: 4, padding: '6px 8px', fontSize: 9, color: '#444', minHeight: 36, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                                    <span style={{ fontSize: 13, color: '#999', fontFamily: 'Georgia, serif', lineHeight: 1 }}>"</span>
+                                                    <span style={{ fontSize: 13, color: '#999', fontFamily: 'Georgia, serif', lineHeight: 1 }}>&quot;</span>
                                                     <span style={{ borderBottom: '1px solid #ccc', paddingBottom: 4, lineHeight: 1.4 }}>인용 내용</span>
                                                 </div>
                                             )},

@@ -40,6 +40,7 @@ export default function AdminLayout({ children }) {
             setLoading(false);
         };
         checkAccess();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleLogout = async () => {
