@@ -50,6 +50,9 @@ const Icons = {
     ),
     Download: () => (
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    ),
+    HelpCircle: () => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
     )
 };
 
@@ -73,6 +76,7 @@ export default function DashboardLayout({ children }) {
     const [needsCompanyBilling, setNeedsCompanyBilling] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(null); // { step, message, percent, postId }
     const [showExtensionBanner, setShowExtensionBanner] = useState(false);
+    const [showExtensionGuide, setShowExtensionGuide] = useState(false);
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const uploadPollRef = useRef(null);
     const supabase = createClient();
@@ -275,6 +279,15 @@ export default function DashboardLayout({ children }) {
                             <Icons.Download />
                             확장프로그램 다운로드
                         </a>
+                        <button
+                            onClick={() => setShowExtensionGuide(true)}
+                            className="topnav-icon-btn"
+                            title="확장프로그램 설치/사용 방법"
+                            style={{ fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 20, background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+                        >
+                            <Icons.HelpCircle />
+                            설치 가이드
+                        </button>
                         {!isSubscribed && (
                             <Link
                                 href="/dashboard/post"
@@ -389,8 +402,18 @@ export default function DashboardLayout({ children }) {
                         <span style={{ fontSize: 18 }}>⚠️</span>
                         <span style={{ flex: 1 }}>
                             <strong>Blog Master 확장프로그램이 연결되지 않았습니다.</strong>
-                            &nbsp; 크롬 확장프로그램을 열어 토큰을 입력하고 연결해 주세요.
+                            &nbsp; 확장프로그램을 다운로드 후 크롬에 추가해 주세요.
                         </span>
+                        <button
+                            onClick={() => setShowExtensionGuide(true)}
+                            style={{
+                                background: 'rgba(251,191,36,0.2)', border: '1px solid rgba(251,191,36,0.4)',
+                                color: '#fbbf24', borderRadius: 6, padding: '4px 10px', fontSize: 12,
+                                cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap'
+                            }}
+                        >
+                            설치 방법 보기
+                        </button>
                         <button onClick={() => {
                             setShowExtensionBanner(false);
                             sessionStorage.setItem('ext_banner_dismissed', '1');
@@ -402,6 +425,85 @@ export default function DashboardLayout({ children }) {
                 )}
                 {children}
             </main>
+
+            {/* Extension Installation Guide Modal */}
+            {showExtensionGuide && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 9999,
+                    background: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+                }} onClick={() => setShowExtensionGuide(false)}>
+                    <div style={{
+                        background: 'var(--bg-card, #1e293b)', color: 'var(--text-primary, #f8fafc)',
+                        border: '1px solid var(--border, #334155)', borderRadius: 16,
+                        maxWidth: 540, width: '100%', padding: 28, position: 'relative',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)', maxHeight: '90vh', overflowY: 'auto'
+                    }} onClick={e => e.stopPropagation()}>
+                        <button
+                            onClick={() => setShowExtensionGuide(false)}
+                            style={{
+                                position: 'absolute', top: 20, right: 20, background: 'none',
+                                border: 'none', color: 'var(--text-muted, #94a3b8)', fontSize: 20,
+                                cursor: 'pointer', lineHeight: 1
+                            }}
+                        >
+                            ✕
+                        </button>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                            <span style={{ fontSize: 24 }}>🧩</span>
+                            <h3 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>크롬 확장프로그램 설치 방법</h3>
+                        </div>
+
+                        <ol style={{ paddingLeft: 20, margin: '0 0 24px', fontSize: 14, lineHeight: 1.7, color: 'var(--text-secondary, #cbd5e1)' }}>
+                            <li style={{ marginBottom: 12 }}>
+                                <strong>압축파일 다운로드</strong><br />
+                                상단 <code>[확장프로그램 다운로드]</code> 버튼을 클릭해 <code>blogmaster-extension.zip</code> 파일을 받으신 후 <strong>압축을 풀어주세요.</strong>
+                            </li>
+                            <li style={{ marginBottom: 12 }}>
+                                <strong>크롬 확장프로그램 페이지 이동</strong><br />
+                                Chrome 브라우저 주소창에 <code>chrome://extensions</code> 를 입력하고 이동합니다.
+                            </li>
+                            <li style={{ marginBottom: 12 }}>
+                                <strong>개발자 모드 활성화</strong><br />
+                                우측 상단의 <strong>[개발자 모드]</strong> 스위치를 켜주세요.
+                            </li>
+                            <li style={{ marginBottom: 12 }}>
+                                <strong>압축해제된 확장 프로그램 로드</strong><br />
+                                좌측 상단 <strong>[압축해제된 확장 프로그램을 로드합니다]</strong> 버튼을 클릭하고, 1번에서 압축 해제한 폴더를 선택합니다.
+                            </li>
+                            <li>
+                                <strong>연결 완료!</strong><br />
+                                설치 완료 후 블로그 마스터 웹사이트를 새로고침하면 확장프로그램이 자동으로 연결됩니다.
+                            </li>
+                        </ol>
+
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <a
+                                href="/blogmaster-extension.zip"
+                                download="blogmaster-extension.zip"
+                                style={{
+                                    textDecoration: 'none', background: '#3b82f6', color: '#fff',
+                                    padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                                    display: 'inline-flex', alignItems: 'center', gap: 6
+                                }}
+                            >
+                                <Icons.Download /> zip 다운로드
+                            </a>
+                            <button
+                                onClick={() => setShowExtensionGuide(false)}
+                                style={{
+                                    background: 'var(--bg-hover, #334155)', color: 'var(--text-primary, #fff)',
+                                    border: 'none', padding: '10px 18px', borderRadius: 8, fontSize: 13,
+                                    fontWeight: 700, cursor: 'pointer'
+                                }}
+                            >
+                                닫기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <InquiryWidget />
         </div>
