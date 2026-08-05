@@ -62,7 +62,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   console.log('[BG] Message received:', msg.type);
   if (msg.type === 'START_POLLING') startPolling();
   if (msg.type === 'STOP_POLLING') stopPolling();
-  if (msg.type === 'POLL_NOW') poll();
+  if (msg.type === 'POLL_NOW') { poll(); pollXhsJobs(); }
   if (msg.type === 'GET_DEVICE_ID') {
     getOrCreateDeviceId().then(deviceId => sendResponse({ deviceId }));
     return true;
@@ -81,7 +81,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 // ── Alarm-based polling ──────────────────────────────────────
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'poll') poll();
+  if (alarm.name === 'poll') { poll(); pollXhsJobs(); }
 });
 
 async function startPolling() {
@@ -93,6 +93,7 @@ async function startPolling() {
   console.log('[BG] Polling started (30s interval)');
 
   poll();
+  pollXhsJobs();
 }
 
 function stopPolling() {
@@ -170,6 +171,108 @@ async function poll() {
   if (!job) return;
 
   await processJob(job, apiUrl, accessToken);
+}
+
+// ════════════════════════════════════════════════════════════
+//  샤오홍슈 스크래핑 잡 (naver 발행 잡과 완전히 별도 락으로 병행 동작)
+// ════════════════════════════════════════════════════════════
+let currentXhsTabId = null;
+
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  if (tabId === currentXhsTabId) {
+    currentXhsTabId = null;
+    await set({ activeXhsJobId: null });
+  }
+});
+
+async function pollXhsJobs() {
+  const { apiUrl, accessToken, activeXhsJobId } = await get(['apiUrl', 'accessToken', 'activeXhsJobId']);
+  if (!apiUrl || !accessToken) return;
+  if (activeXhsJobId) {
+    console.log('[BG][XHS] Skipping poll — job already active:', activeXhsJobId);
+    return;
+  }
+
+  const deviceId = await getOrCreateDeviceId();
+  let jobs;
+  try {
+    const res = await fetch(`${apiUrl}/api/extension/xhs-jobs?device_id=${encodeURIComponent(deviceId)}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    if (!res.ok) { console.warn('[BG][XHS] Poll failed:', res.status); return; }
+    const data = await res.json();
+    jobs = data.jobs || [];
+    console.log('[BG][XHS] Jobs fetched:', jobs.length);
+  } catch (e) {
+    console.warn('[BG][XHS] Poll error:', e.message); return;
+  }
+
+  const job = jobs.find(j => j.status === 'pending_extension');
+  if (!job) return;
+
+  await processXhsJob(job, apiUrl, accessToken);
+}
+
+async function processXhsJob(job, apiUrl, accessToken) {
+  console.log('[BG][XHS] Starting job:', job.id, job.source_url);
+  await set({ activeXhsJobId: job.id });
+
+  try {
+    await fetch(`${apiUrl}/api/extension/xhs-jobs/${job.id}/ack`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+    });
+  } catch (e) {
+    console.warn('[BG][XHS] Ack failed:', e.message);
+  }
+
+  let tab;
+  try {
+    tab = await chrome.tabs.create({ url: job.source_url, active: false });
+    currentXhsTabId = tab.id;
+  } catch (e) {
+    currentXhsTabId = null;
+    await reportXhsDone(job.id, { success: false, error: `탭 생성 실패: ${e.message}` }, apiUrl, accessToken);
+    return;
+  }
+
+  await waitForTabLoad(tab.id);
+  await sleep(2000);
+
+  let result;
+  try {
+    result = await new Promise((resolve) => {
+      const timer = setTimeout(() => resolve({ success: false, error: '스크래핑 타임아웃(30초)' }), 30000);
+      chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_XHS', apiUrl, accessToken, jobId: job.id }, (response) => {
+        clearTimeout(timer);
+        if (chrome.runtime.lastError) {
+          resolve({ success: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+        resolve(response || { success: false, error: '콘텐츠 스크립트 응답 없음' });
+      });
+    });
+  } catch (e) {
+    result = { success: false, error: e.message };
+  }
+
+  await chrome.tabs.remove(tab.id).catch(() => {});
+  currentXhsTabId = null;
+  await reportXhsDone(job.id, result, apiUrl, accessToken);
+}
+
+async function reportXhsDone(jobId, result, apiUrl, accessToken) {
+  try {
+    await fetch(`${apiUrl}/api/extension/xhs-jobs/${jobId}/done`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(result)
+    });
+  } catch (e) {
+    console.warn('[BG][XHS] Report done failed:', e.message);
+  }
+  await set({ activeXhsJobId: null });
+  console.warn('[BG][XHS] Job done:', jobId, result.success ? '성공' : '실패', result.error || '');
 }
 
 // ── Process a single job ─────────────────────────────────────

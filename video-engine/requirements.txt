@@ -1,0 +1,13 @@
+# 먼저 CPU 전용 torch부터 설치할 것 (기본 인덱스는 수 GB짜리 CUDA 빌드를 받아옴):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# 그 다음 이 파일을 설치:
+#   pip install -r requirements.txt
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.17
+edge-tts==7.2.8
+google-generativeai==0.8.3
+python-dotenv==1.0.1
+scenedetect[opencv]==0.6.5.2
+openai-whisper==20250625
+httpx==0.28.1

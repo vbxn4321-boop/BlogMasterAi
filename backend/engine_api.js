@@ -7,6 +7,10 @@ const fs = require('fs');
 const axios = require('axios');
 const puppeteer = require('puppeteer');
 const cheerio = require('cheerio');
+const multer = require('multer');
+const coupangApi = require('./coupang_api');
+
+const xhsUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 300 * 1024 * 1024 } });
 
 require('dotenv').config();
 
@@ -1916,6 +1920,169 @@ app.get('/api/extension/image/:postId/:index', extensionAuthMiddleware, async (r
     res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
     res.setHeader('Cache-Control', 'private, max-age=3600');
     require('fs').createReadStream(imgPath).pipe(res);
+});
+
+// ════════════════════════════════════════
+//  샤오홍슈 스크래핑 & 쿠팡 상품매칭
+// ════════════════════════════════════════
+const XHS_STORAGE_BUCKET = 'xhs-media';
+let xhsBucketEnsured = false;
+async function ensureXhsStorageBucket() {
+    if (xhsBucketEnsured) return;
+    try {
+        const { data: buckets } = await supabase.storage.listBuckets();
+        if (!buckets?.some(b => b.name === XHS_STORAGE_BUCKET)) {
+            await supabase.storage.createBucket(XHS_STORAGE_BUCKET, { public: true });
+        }
+        xhsBucketEnsured = true;
+    } catch (e) {
+        console.warn('[XHS Storage] Bucket check/create failed:', e.message);
+    }
+}
+
+// POST /api/xhs/jobs — 프론트엔드에서 샤오홍슈 URL 입력 시 job 생성 (x-engine-secret)
+app.post('/api/xhs/jobs', authMiddleware, async (req, res) => {
+    const { user_id, source_url } = req.body;
+    if (!user_id || !source_url) return res.status(400).json({ error: 'user_id, source_url이 필요합니다.' });
+
+    const { data, error } = await supabase
+        .from('xhs_scrape_jobs')
+        .insert({ user_id, source_url, status: 'pending_extension' })
+        .select('id')
+        .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ job_id: data.id });
+});
+
+// GET /api/extension/xhs-jobs — 확장 프로그램 폴링용
+app.get('/api/extension/xhs-jobs', extensionAuthMiddleware, async (req, res) => {
+    const { data, error } = await supabase
+        .from('xhs_scrape_jobs')
+        .select('id, source_url, status, created_at')
+        .eq('user_id', req.user.id)
+        .eq('status', 'pending_extension')
+        .order('created_at', { ascending: true });
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ jobs: data || [] });
+});
+
+// POST /api/extension/xhs-jobs/:id/ack — 스크래핑 시작 알림
+app.post('/api/extension/xhs-jobs/:id/ack', extensionAuthMiddleware, async (req, res) => {
+    await supabase.from('xhs_scrape_jobs')
+        .update({ status: 'processing' })
+        .eq('id', req.params.id)
+        .eq('user_id', req.user.id);
+    res.json({ status: 'acked' });
+});
+
+// POST /api/extension/xhs-jobs/:id/upload — 확장이 스크래핑한 영상/이미지/캡션 업로드
+app.post('/api/extension/xhs-jobs/:id/upload', extensionAuthMiddleware,
+    xhsUpload.any(), async (req, res) => {
+    const jobId = req.params.id;
+    const { data: job } = await supabase.from('xhs_scrape_jobs').select('*').eq('id', jobId).eq('user_id', req.user.id).single();
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    try {
+        await ensureXhsStorageBucket();
+
+        const videoFile = (req.files || []).find(f => f.fieldname === 'video');
+        const imageFiles = (req.files || []).filter(f => f.fieldname.startsWith('image_'));
+
+        let videoPath = null;
+        if (videoFile) {
+            const storagePath = `${jobId}/source.mp4`;
+            const { error } = await supabase.storage.from(XHS_STORAGE_BUCKET)
+                .upload(storagePath, videoFile.buffer, { contentType: 'video/mp4', upsert: true });
+            if (error) throw new Error(`영상 업로드 실패: ${error.message}`);
+            videoPath = supabase.storage.from(XHS_STORAGE_BUCKET).getPublicUrl(storagePath).data.publicUrl;
+        }
+
+        const imagePaths = [];
+        for (let i = 0; i < imageFiles.length; i++) {
+            const storagePath = `${jobId}/image_${i}.jpg`;
+            const { error } = await supabase.storage.from(XHS_STORAGE_BUCKET)
+                .upload(storagePath, imageFiles[i].buffer, { contentType: 'image/jpeg', upsert: true });
+            if (error) { console.warn(`[XHS] 이미지 ${i} 업로드 실패:`, error.message); continue; }
+            imagePaths.push(supabase.storage.from(XHS_STORAGE_BUCKET).getPublicUrl(storagePath).data.publicUrl);
+        }
+
+        await supabase.from('xhs_scrape_jobs').update({
+            caption_text: req.body.caption_text || null,
+            video_path: videoPath,
+            image_paths: imagePaths,
+            status: 'scraped',
+        }).eq('id', jobId);
+
+        res.json({ status: 'uploaded' });
+
+        // video-engine 처리 트리거 (비동기, 응답을 막지 않음)
+        const videoEngineUrl = process.env.VIDEO_ENGINE_URL || 'http://localhost:8001';
+        axios.post(`${videoEngineUrl}/api/xhs/process`, {
+            job_id: jobId,
+            video_url: videoPath,
+            image_urls: imagePaths,
+            caption_text: req.body.caption_text || '',
+            callback_url: `http://localhost:${process.env.ENGINE_PORT || 4000}/api/xhs/jobs/${jobId}/analyzed`,
+            engine_secret: process.env.ENGINE_API_SECRET,
+        }).catch(e => console.warn('[XHS] video-engine 트리거 실패:', e.message));
+
+    } catch (e) {
+        await supabase.from('xhs_scrape_jobs').update({ status: 'failed', error_message: e.message }).eq('id', jobId);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/extension/xhs-jobs/:id/done — 확장이 스크래핑 실패를 보고할 때만 사용
+// (성공 시에는 /upload가 이미 status='scraped'로 갱신하므로 별도 처리 불필요)
+app.post('/api/extension/xhs-jobs/:id/done', extensionAuthMiddleware, async (req, res) => {
+    const { success, error: jobError } = req.body;
+    if (!success) {
+        await supabase.from('xhs_scrape_jobs')
+            .update({ status: 'failed', error_message: jobError || '확장 프로그램 스크래핑 실패' })
+            .eq('id', req.params.id)
+            .eq('user_id', req.user.id);
+    }
+    res.json({ status: 'done' });
+});
+
+// POST /api/xhs/jobs/:id/analyzed — video-engine이 장면분할/번역/상품인식 완료 후 콜백 (x-engine-secret)
+app.post('/api/xhs/jobs/:id/analyzed', authMiddleware, async (req, res) => {
+    const jobId = req.params.id;
+    const { scenes, translated_script, product_name_guess, error: analysisError } = req.body;
+
+    if (analysisError) {
+        await supabase.from('xhs_scrape_jobs')
+            .update({ status: 'failed', error_message: analysisError })
+            .eq('id', jobId);
+        return res.json({ status: 'failed_recorded' });
+    }
+
+    const videoEngineUrl = process.env.VIDEO_ENGINE_URL || 'http://localhost:8001';
+    const absoluteScenes = (scenes || []).map(s => ({
+        ...s,
+        thumbnail_path: s.thumbnail_path?.startsWith('http') ? s.thumbnail_path : `${videoEngineUrl}${s.thumbnail_path}`,
+    }));
+
+    await supabase.from('xhs_scrape_jobs').update({
+        status: 'analyzing', scenes: absoluteScenes, translated_script, product_name_guess,
+    }).eq('id', jobId);
+
+    let coupangMatches = [];
+    try {
+        if (coupangApi.isConfigured() && product_name_guess) {
+            coupangMatches = await coupangApi.searchProducts(product_name_guess, 10);
+        }
+    } catch (e) {
+        console.warn('[XHS] Coupang 검색 실패:', e.message);
+    }
+
+    await supabase.from('xhs_scrape_jobs').update({
+        status: 'ready', coupang_matches: coupangMatches, completed_at: new Date().toISOString(),
+    }).eq('id', jobId);
+
+    res.json({ status: 'ready', matches: coupangMatches.length });
 });
 
 // ════════════════════════════════════════

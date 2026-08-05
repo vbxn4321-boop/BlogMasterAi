@@ -55,3 +55,82 @@ window.addEventListener('message', (event) => {
   }
 });
 
+// ────────────────────────────────────────────────────────────
+// 샤오홍슈 스크래핑 (background.js가 xhs job을 위해 새로 연 탭에서 호출)
+// ────────────────────────────────────────────────────────────
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'SCRAPE_XHS') {
+    scrapeXiaohongshu(msg.apiUrl, msg.accessToken, msg.jobId)
+      .then((result) => sendResponse(result))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true; // 비동기 응답
+  }
+});
+
+function waitForXhsContent(timeoutMs = 15000) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const check = () => {
+      const hasVideo = !!document.querySelector('video');
+      const hasImages = document.querySelectorAll('img').length > 5;
+      if (hasVideo || hasImages || Date.now() - start > timeoutMs) resolve();
+      else setTimeout(check, 500);
+    };
+    check();
+  });
+}
+
+function extractXhsCaptionText() {
+  // 샤오홍슈 게시물 본문 셀렉터 — 사이트 마크업 변경 시 갱신 필요
+  const selectors = ['#detail-desc', '.note-content', '.desc'];
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el?.textContent?.trim()) return el.textContent.trim();
+  }
+  const metaDesc = document.querySelector('meta[name="description"]')?.getAttribute('content');
+  return metaDesc?.trim() || document.title || '';
+}
+
+async function scrapeXiaohongshu(apiUrl, accessToken, jobId) {
+  await waitForXhsContent();
+
+  const video = document.querySelector('video');
+  const videoSrc = video?.currentSrc || video?.src || null;
+
+  const images = videoSrc ? [] : Array.from(document.querySelectorAll('img'))
+    .map((img) => img.src)
+    .filter((src) => src && /^https?:/.test(src) && (document.querySelector(`img[src="${src}"]`)?.naturalWidth || 0) > 200)
+    .slice(0, 12);
+
+  if (!videoSrc && images.length === 0) {
+    throw new Error('영상/이미지를 찾지 못했습니다. 페이지가 완전히 로드된 뒤 다시 시도해주세요.');
+  }
+
+  const captionText = extractXhsCaptionText();
+
+  const formData = new FormData();
+  formData.set('caption_text', captionText);
+
+  if (videoSrc) {
+    const videoBlob = await (await fetch(videoSrc)).blob();
+    formData.set('video', videoBlob, 'source.mp4');
+  }
+  for (let i = 0; i < images.length; i++) {
+    const imgBlob = await (await fetch(images[i])).blob();
+    formData.set(`image_${i}`, imgBlob, `image_${i}.jpg`);
+  }
+
+  const res = await fetch(`${apiUrl}/api/extension/xhs-jobs/${jobId}/upload`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`업로드 실패 (${res.status}): ${text}`);
+  }
+
+  return { success: true };
+}
+
