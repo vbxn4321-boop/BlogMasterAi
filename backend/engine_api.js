@@ -1990,7 +1990,7 @@ app.post('/api/extension/xhs-jobs/:id/upload', extensionAuthMiddleware,
         const videoFile = (req.files || []).find(f => f.fieldname === 'video');
         const imageFiles = (req.files || []).filter(f => f.fieldname.startsWith('image_'));
 
-        let videoPath = null;
+        let videoPath = req.body.video_url || null;
         if (videoFile) {
             const storagePath = `${jobId}/source.mp4`;
             const { error } = await supabase.storage.from(XHS_STORAGE_BUCKET)

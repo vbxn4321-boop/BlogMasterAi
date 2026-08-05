@@ -261,13 +261,22 @@ async function processXhsJob(job, apiUrl, accessToken) {
   try {
     result = await new Promise((resolve) => {
       const timer = setTimeout(() => resolve({ success: false, error: '스크래핑 타임아웃(30초)' }), 30000);
-      chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_XHS', apiUrl, accessToken, jobId: job.id }, (response) => {
+      chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_XHS' }, async (response) => {
         clearTimeout(timer);
         if (chrome.runtime.lastError) {
           resolve({ success: false, error: chrome.runtime.lastError.message });
           return;
         }
-        resolve(response || { success: false, error: '콘텐츠 스크립트 응답 없음' });
+        if (!response || !response.success) {
+          resolve(response || { success: false, error: '콘텐츠 스크립트 응답 없음' });
+          return;
+        }
+        try {
+          const uploadRes = await uploadXhsMedia(job.id, response, apiUrl, accessToken);
+          resolve(uploadRes);
+        } catch (e) {
+          resolve({ success: false, error: e.message });
+        }
       });
     });
   } catch (e) {
@@ -277,6 +286,52 @@ async function processXhsJob(job, apiUrl, accessToken) {
   await chrome.tabs.remove(tab.id).catch(() => {});
   currentXhsTabId = null;
   await reportXhsDone(job.id, result, apiUrl, accessToken);
+}
+
+async function uploadXhsMedia(jobId, scrapeData, apiUrl, accessToken) {
+  const { videoSrc, images = [], captionText = '' } = scrapeData;
+  const formData = new FormData();
+  formData.set('caption_text', captionText);
+
+  if (videoSrc) {
+    try {
+      const res = await fetch(videoSrc);
+      if (res.ok) {
+        const videoBlob = await res.blob();
+        formData.set('video', videoBlob, 'source.mp4');
+      } else {
+        formData.set('video_url', videoSrc);
+      }
+    } catch (e) {
+      console.warn('[BG][XHS] Video blob fetch failed, fallback to video_url:', e.message);
+      formData.set('video_url', videoSrc);
+    }
+  }
+
+  for (let i = 0; i < images.length; i++) {
+    try {
+      const res = await fetch(images[i]);
+      if (res.ok) {
+        const imgBlob = await res.blob();
+        formData.set(`image_${i}`, imgBlob, `image_${i}.jpg`);
+      }
+    } catch (e) {
+      console.warn(`[BG][XHS] Image ${i} fetch failed:`, e.message);
+    }
+  }
+
+  const uploadRes = await fetch(`${apiUrl}/api/extension/xhs-jobs/${jobId}/upload`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+    body: formData,
+  });
+
+  if (!uploadRes.ok) {
+    const text = await uploadRes.text().catch(() => '');
+    throw new Error(`업로드 실패 (${uploadRes.status}): ${text}`);
+  }
+
+  return { success: true };
 }
 
 async function reportXhsDone(jobId, result, apiUrl, accessToken) {

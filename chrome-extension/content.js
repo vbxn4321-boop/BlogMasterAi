@@ -91,7 +91,7 @@ function extractXhsCaptionText() {
   return metaDesc?.trim() || document.title || '';
 }
 
-async function scrapeXiaohongshu(apiUrl, accessToken, jobId) {
+async function scrapeXiaohongshu() {
   await waitForXhsContent();
 
   const video = document.querySelector('video');
@@ -108,29 +108,6 @@ async function scrapeXiaohongshu(apiUrl, accessToken, jobId) {
 
   const captionText = extractXhsCaptionText();
 
-  const formData = new FormData();
-  formData.set('caption_text', captionText);
-
-  if (videoSrc) {
-    const videoBlob = await (await fetch(videoSrc)).blob();
-    formData.set('video', videoBlob, 'source.mp4');
-  }
-  for (let i = 0; i < images.length; i++) {
-    const imgBlob = await (await fetch(images[i])).blob();
-    formData.set(`image_${i}`, imgBlob, `image_${i}.jpg`);
-  }
-
-  const res = await fetch(`${apiUrl}/api/extension/xhs-jobs/${jobId}/upload`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${accessToken}` },
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`업로드 실패 (${res.status}): ${text}`);
-  }
-
-  return { success: true };
+  return { success: true, videoSrc, images, captionText };
 }
 
