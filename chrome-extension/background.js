@@ -186,11 +186,29 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 });
 
 async function pollXhsJobs() {
-  const { apiUrl, accessToken, activeXhsJobId } = await get(['apiUrl', 'accessToken', 'activeXhsJobId']);
+  const { apiUrl, accessToken, activeXhsJobId, activeXhsJobStartTime } = await get([
+    'apiUrl', 'accessToken', 'activeXhsJobId', 'activeXhsJobStartTime'
+  ]);
   if (!apiUrl || !accessToken) return;
   if (activeXhsJobId) {
-    console.log('[BG][XHS] Skipping poll — job already active:', activeXhsJobId);
-    return;
+    let tabExists = false;
+    if (currentXhsTabId) {
+      try {
+        await chrome.tabs.get(currentXhsTabId);
+        tabExists = true;
+      } catch (_) {
+        tabExists = false;
+      }
+    }
+    const isOrphaned = !activeXhsJobStartTime || (Date.now() - activeXhsJobStartTime > 3 * 60 * 1000) || (currentXhsTabId && !tabExists);
+    if (isOrphaned) {
+      console.log('[BG][XHS] Orphaned activeXhsJobId detected (tabExists:', tabExists, '), clearing:', activeXhsJobId);
+      currentXhsTabId = null;
+      await set({ activeXhsJobId: null, activeXhsJobStartTime: null });
+    } else {
+      console.log('[BG][XHS] Skipping poll — job already active:', activeXhsJobId);
+      return;
+    }
   }
 
   const deviceId = await getOrCreateDeviceId();
@@ -215,7 +233,7 @@ async function pollXhsJobs() {
 
 async function processXhsJob(job, apiUrl, accessToken) {
   console.log('[BG][XHS] Starting job:', job.id, job.source_url);
-  await set({ activeXhsJobId: job.id });
+  await set({ activeXhsJobId: job.id, activeXhsJobStartTime: Date.now() });
 
   try {
     await fetch(`${apiUrl}/api/extension/xhs-jobs/${job.id}/ack`, {
@@ -271,7 +289,7 @@ async function reportXhsDone(jobId, result, apiUrl, accessToken) {
   } catch (e) {
     console.warn('[BG][XHS] Report done failed:', e.message);
   }
-  await set({ activeXhsJobId: null });
+  await set({ activeXhsJobId: null, activeXhsJobStartTime: null });
   console.warn('[BG][XHS] Job done:', jobId, result.success ? '성공' : '실패', result.error || '');
 }
 
