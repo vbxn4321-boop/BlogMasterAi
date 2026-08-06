@@ -575,26 +575,50 @@ async function ensureBodyFocus(tabId, editorFrameId) {
 
   if (isFocused) return true;
 
-  console.warn('[AUTOMATION] 포커스가 본문 영역을 벗어남 — 마지막 단락으로 재조정');
+  console.warn('[AUTOMATION] 포커스가 본문 영역을 벗어남 — 본문/마지막 단락으로 재조정');
 
-  const lastParaCoords = await getAbsoluteCoords(tabId, editorFrameId, () => {
+  const bodyCoords = await getAbsoluteCoords(tabId, editorFrameId, () => {
     const paras = document.querySelectorAll(
-      '.se-component-holder .se-section:not(.se-section-documentTitle) .se-text-paragraph'
+      '.se-component-holder .se-text-paragraph, ' +
+      '.se-main-container .se-section:not(.se-section-documentTitle) .se-text-paragraph, ' +
+      '.se-components .se-section:not(.se-section-documentTitle) .se-text-paragraph, ' +
+      '.se-section-text .se-text-paragraph, ' +
+      '.se-module-text:not(.se-documentTitle .se-module-text) p, ' +
+      '[contenteditable="true"]:not(.se-documentTitle [contenteditable="true"]) p, ' +
+      '[contenteditable="true"]:not(.se-documentTitle [contenteditable="true"])'
     );
-    if (!paras.length) return null;
-    const last = paras[paras.length - 1];
-    last.scrollIntoView({ behavior: 'instant', block: 'center' });
-    const r = last.getBoundingClientRect();
-    if (!r.width && !r.height) return null;
-    return { x: r.left + Math.max(r.width / 4, 20), y: r.top + Math.max(r.height / 2, 10) };
+    if (paras.length > 0) {
+      const last = paras[paras.length - 1];
+      last.scrollIntoView({ behavior: 'instant', block: 'center' });
+      const r = last.getBoundingClientRect();
+      if (r.width || r.height) {
+        return { x: r.left + Math.max(r.width / 4, 20), y: r.top + Math.max(r.height / 2, 10) };
+      }
+    }
+
+    // 2차 폴백: 단락이 아직 없을 때 (첫 본문 타이핑 시) 본문 영역 전체 섹션을 클릭
+    const bodySection = document.querySelector(
+      '.se-main-container .se-section:not(.se-section-documentTitle), ' +
+      '.se-components .se-section:not(.se-section-documentTitle), ' +
+      '.se-section-text, .se-component-text'
+    );
+    if (bodySection) {
+      bodySection.scrollIntoView({ behavior: 'instant', block: 'center' });
+      const r = bodySection.getBoundingClientRect();
+      if (r.width || r.height) {
+        return { x: r.left + Math.max(r.width / 4, 20), y: r.top + Math.max(r.height / 2, 10) };
+      }
+    }
+
+    return null;
   });
 
-  if (!lastParaCoords) {
-    console.warn('[AUTOMATION] 재조정할 마지막 단락을 찾지 못함');
+  if (!bodyCoords) {
+    console.warn('[AUTOMATION] 재조정할 본문 영역을 찾지 못함');
     return false;
   }
 
-  await clickAtCoords(tabId, lastParaCoords.x, lastParaCoords.y);
+  await clickAtCoords(tabId, bodyCoords.x, bodyCoords.y);
   await sleep(200);
   await sendKey(tabId, 'End', 'End', 35); // 클릭 위치가 단락 중간일 수 있으므로 끝으로 이동
   await sleep(100);
@@ -1874,11 +1898,18 @@ async function runEditorAutomation(tabId, jobPayload) {
       // 실패하면 여기서 바로 명확한 에러로 중단한다.
       let focused = await ensureBodyFocus(tabId, eFid);
       if (!focused) {
+        if (bodyCoords) await clickAtCoords(tabId, bodyCoords.x, bodyCoords.y);
         await sleep(500);
         focused = await ensureBodyFocus(tabId, eFid);
       }
       if (!focused) {
-        throw new Error('본문 영역 포커스를 복구하지 못했습니다 (에디터 상태 이상 — 자동발행을 중단합니다)');
+        if (bodyCoords) {
+          console.warn('[AUTOMATION] ensureBodyFocus 미확정 — bodyCoords 클릭 후 강제 진행');
+          await clickAtCoords(tabId, bodyCoords.x, bodyCoords.y);
+          await sleep(300);
+        } else {
+          throw new Error('본문 영역 포커스를 복구하지 못했습니다 (에디터 상태 이상 — 자동발행을 중단합니다)');
+        }
       }
       await typeViaDebugger(tabId, block.content);
       await sleep(100);
