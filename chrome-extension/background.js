@@ -119,8 +119,15 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   }
 });
 
+let isProcessingNaverJob = false;
+
 // ── Main poll function ───────────────────────────────────────
 async function poll() {
+  if (isProcessingNaverJob) {
+    console.log('[BG] Skipping poll — job execution already in progress locally');
+    return;
+  }
+
   let { apiUrl, accessToken, activeJobId, activeJobStartTime } = await get([
     'apiUrl', 'accessToken', 'activeJobId', 'activeJobStartTime'
   ]);
@@ -157,8 +164,6 @@ async function poll() {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     });
     if (res.status === 401) {
-      // 만료되지 않는 전용 토큰이라 401은 "사용자가 토큰을 재발급/무효화했다"는 뜻 —
-      // 갱신 재시도 없이 바로 연결을 끊는다.
       console.warn('[BG] Token invalid/revoked (401)');
       await handleSessionExpired();
       return;
@@ -357,92 +362,96 @@ async function reportXhsDone(jobId, result, apiUrl, accessToken) {
 
 // ── Process a single job ─────────────────────────────────────
 async function processJob(job, apiUrl, accessToken) {
+  if (isProcessingNaverJob) {
+    console.warn('[BG] Already processing a job locally, skipping duplicate start:', job.id);
+    return;
+  }
+  isProcessingNaverJob = true;
   console.log('[BG] Starting job:', job.id);
   await set({ activeJobId: job.id, activeJobStartTime: Date.now() });
 
   try {
-    await fetch(`${apiUrl}/api/extension/jobs/${job.id}/ack`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-    });
-  } catch (e) {
-    console.warn('[BG] Ack failed:', e.message);
-  }
-
-  const naverBlogId = job.naver_accounts?.naver_id?.trim().split('@')[0];
-  if (!naverBlogId) {
-    await reportDone(job.id, { success: false, error: '네이버 블로그 ID가 없습니다.' }, apiUrl, accessToken);
-    return;
-  }
-
-  // extension_images 항목이 이미 http URL이면 그대로 사용, 아니면 백엔드 서빙 URL로 변환
-  // null(이미지 생성 실패로 빈 자리)은 그대로 null 유지 — 해당 앵커만 건너뛰고 나머지 순서는 그대로 정렬 유지
-  const imageUrls = (job.content_json?.extension_images || []).map((imgPath, i) => {
-    if (!imgPath) return null;
-    if (typeof imgPath === 'string' && imgPath.startsWith('http')) {
-      return imgPath; // Supabase URL 등 외부 URL은 그대로 사용
+    try {
+      await fetch(`${apiUrl}/api/extension/jobs/${job.id}/ack`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+      });
+    } catch (e) {
+      console.warn('[BG] Ack failed:', e.message);
     }
-    return `${apiUrl}/api/extension/image/${job.id}/${i}?token=${encodeURIComponent(accessToken)}`;
-  });
 
-  const publishOptions = {
-    ...(job.content_json?.publish_options || {}),
-    // jobs API가 scheduled_at을 DB 컬럼으로 직접 반환하므로 fallback으로 병합
-    scheduled_at: job.content_json?.publish_options?.scheduled_at || job.scheduled_at || null,
-  };
+    const naverBlogId = job.naver_accounts?.naver_id?.trim().split('@')[0];
+    if (!naverBlogId) {
+      await reportDone(job.id, { success: false, error: '네이버 블로그 ID가 없습니다.' }, apiUrl, accessToken);
+      return;
+    }
 
-  const jobPayload = {
-    id: job.id,
-    title: job.content_json?.title || '',
-    content: job.content_json?.content || '',
-    hashtags: job.content_json?.hashtags || [],
-    imageUrls,
-    naverBlogId,
-    publishOptions,
-    business: job.content_json?.business || {},
-    aiGeneratedIndices: job.content_json?.ai_generated_indices || [],
-  };
+    const imageUrls = (job.content_json?.extension_images || []).map((imgPath, i) => {
+      if (!imgPath) return null;
+      if (typeof imgPath === 'string' && imgPath.startsWith('http')) {
+        return imgPath;
+      }
+      return `${apiUrl}/api/extension/image/${job.id}/${i}?token=${encodeURIComponent(accessToken)}`;
+    });
 
-  const isScheduled = jobPayload.publishOptions?.scheduled_at &&
-    jobPayload.publishOptions.scheduled_at !== 'null';
-  const writeUrl = `https://blog.naver.com/${naverBlogId}?Redirect=Write`;
-  let tab;
-  try {
-    tab = await chrome.tabs.create({ url: writeUrl, active: true });
-    currentJobTabId = tab.id;
-  } catch (e) {
-    currentJobTabId = null;
-    await reportDone(job.id, { success: false, error: `탭 생성 실패: ${e.message}` }, apiUrl, accessToken);
-    return;
-  }
+    const publishOptions = {
+      ...(job.content_json?.publish_options || {}),
+      scheduled_at: job.content_json?.publish_options?.scheduled_at || job.scheduled_at || null,
+    };
 
-  await waitForTabLoad(tab.id);
-  await sleep(3000);
+    const jobPayload = {
+      id: job.id,
+      title: job.content_json?.title || '',
+      content: job.content_json?.content || '',
+      hashtags: job.content_json?.hashtags || [],
+      imageUrls,
+      naverBlogId,
+      publishOptions,
+      business: job.content_json?.business || {},
+      aiGeneratedIndices: job.content_json?.ai_generated_indices || [],
+    };
 
-  try {
-    await chrome.debugger.attach({ tabId: tab.id }, '1.3');
-    console.log('[BG] Debugger attached to tab', tab.id);
-  } catch (e) {
-    console.warn('[BG] Debugger attach failed:', e.message);
+    const writeUrl = `https://blog.naver.com/${naverBlogId}?Redirect=Write`;
+    let tab;
+    try {
+      tab = await chrome.tabs.create({ url: writeUrl, active: true });
+      currentJobTabId = tab.id;
+    } catch (e) {
+      currentJobTabId = null;
+      await reportDone(job.id, { success: false, error: `탭 생성 실패: ${e.message}` }, apiUrl, accessToken);
+      return;
+    }
+
+    await waitForTabLoad(tab.id);
+    await sleep(3000);
+
+    try {
+      await chrome.debugger.attach({ tabId: tab.id }, '1.3');
+      console.log('[BG] Debugger attached to tab', tab.id);
+    } catch (e) {
+      console.warn('[BG] Debugger attach failed:', e.message);
+      await chrome.tabs.remove(tab.id).catch(() => {});
+      currentJobTabId = null;
+      await reportDone(job.id, { success: false, error: `디버거 연결 실패: ${e.message}` }, apiUrl, accessToken);
+      return;
+    }
+
+    let result;
+    try {
+      result = await runEditorAutomation(tab.id, jobPayload);
+    } catch (e) {
+      console.error('[BG] Automation error:', e);
+      result = { success: false, error: e.message };
+    }
+
+    try { await evalInTab(tab.id, () => { window.onbeforeunload = null; }); } catch (_) {}
+    try { await chrome.debugger.detach({ tabId: tab.id }); } catch (_) {}
     await chrome.tabs.remove(tab.id).catch(() => {});
     currentJobTabId = null;
-    await reportDone(job.id, { success: false, error: `디버거 연결 실패: ${e.message}` }, apiUrl, accessToken);
-    return;
+    await reportDone(job.id, result, apiUrl, accessToken);
+  } finally {
+    isProcessingNaverJob = false;
   }
-
-  let result;
-  try {
-    result = await runEditorAutomation(tab.id, jobPayload);
-  } catch (e) {
-    console.error('[BG] Automation error:', e);
-    result = { success: false, error: e.message };
-  }
-
-  try { await evalInTab(tab.id, () => { window.onbeforeunload = null; }); } catch (_) {}
-  try { await chrome.debugger.detach({ tabId: tab.id }); } catch (_) {}
-  await chrome.tabs.remove(tab.id).catch(() => {});
-  currentJobTabId = null;
-  await reportDone(job.id, result, apiUrl, accessToken);
 }
 
 // ── Wait for tab navigation to complete ─────────────────────
