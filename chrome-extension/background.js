@@ -720,10 +720,11 @@ async function sendKey(tabId, key, code, keyCode, modifiers = 0) {
 // ════════════════════════════════════════════════════════════
 function parseBlocks(content) {
   const tokens = [];
-  // AI가 생성한 오염된 [/<B>], [/</B>], [/\<B>] 등의 B 태그 완벽 정제
+  // AI가 생성한 [B], [/B] 태그 및 파생 태그 정제 (단락 파편화 방지)
   let remaining = (content || '')
-    .replace(/\[\/\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '[/B]')
-    .replace(/\[\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '[B]')
+    .replace(/\[\/\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '')
+    .replace(/\[\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '')
+    .replace(/\[\/?B\]/gi, '')
     .replace(/\[IMAGE_?ANCHOR_?(\d+)\]/gi, '[IMAGE_ANCHOR_$1]')
     .replace(/\[\/?(QUOTEANCHOR\d*|IMAGEQUOTE\d*|QUOTEIMAGE\d*)\]/gi, '');
   // AI가 프롬프트 지시를 어기고 마크다운 불릿(줄 앞 *, - )으로 목록을 쓴 경우, 그대로 타이핑하면
@@ -744,7 +745,6 @@ function parseBlocks(content) {
     const blMatch = remaining.match(/\[QUOTE_?BALLOON\]/i);
     const lqMatch = remaining.match(/\[QUOTE_?LINE_?QUOTATION\]/i);
     const frMatch = remaining.match(/\[QUOTE_?FRAME\]/i);
-    const bMatch  = remaining.match(/\[B\]/i);
     const imageMatch = remaining.match(/\[IMAGE_?ANCHOR_?(?:\s*)(\d+)\]/i);
     const mapMatch   = remaining.match(/\[BUSINESS_?MAP_?BLOCK\]/i);
     const ctaMatch   = remaining.match(/\[BUSINESS_?CTA_?BANNER\]/i);
@@ -756,7 +756,6 @@ function parseBlocks(content) {
       blMatch && { type: 'quote_balloon',         index: blMatch.index, match: blMatch },
       lqMatch && { type: 'quote_line_quotation',  index: lqMatch.index, match: lqMatch },
       frMatch && { type: 'quote_frame',           index: frMatch.index, match: frMatch },
-      bMatch  && { type: 'bold',                  index: bMatch.index,  match: bMatch },
       imageMatch && { type: 'image',              index: imageMatch.index, match: imageMatch },
       mapMatch   && { type: 'map',                index: mapMatch.index,   match: mapMatch },
       ctaMatch   && { type: 'cta_banner',         index: ctaMatch.index,   match: ctaMatch },
@@ -1929,29 +1928,8 @@ async function runEditorAutomation(tabId, jobPayload) {
       }
       await typeViaDebugger(tabId, block.content);
       await sleep(100);
-      // 다음 토큰이 인라인 [B]면 문장이 그대로 이어지는 것이므로 단락 구분 Enter를 넣지 않는다.
-      // (그렇지 않으면 [B] 앞에서 쪼개진 텍스트 조각마다 줄바꿈이 생겨 한 문장이 여러 줄로 갈라짐)
-      if (blocks[blockIdx + 1]?.type !== 'bold') {
-        await sendKey(tabId, 'Return', 'Enter', 13);
-        await sleep(50);
-        await sendKey(tabId, 'Return', 'Enter', 13); // 이미지/인용구 삽입 시 첫 번째 Return이 소비되므로 2개 전송
-      }
-    } else if (block.type === 'bold') {
-      // bold는 인라인 — 텍스트 중간에 위치하므로 뒤에 Enter 없음
-      await typeViaDebugger(tabId, block.content);
+      await sendKey(tabId, 'Return', 'Enter', 13);
       await sleep(100);
-      // Shift+ArrowLeft 반복 + Ctrl+B 단축키 시뮬레이션 방식은 네이버 에디터에서
-      // 선택/단축키 인식이 간헐적으로 실패해 문장이 단락으로 쪼개지는 문제가 있었다.
-      // Selection.modify + execCommand('bold')로 에디터 프레임 안에서 직접 적용하도록 교체.
-      await evalInEditor(tabId, eFid, (len) => {
-        const sel = window.getSelection();
-        if (!sel || sel.rangeCount === 0) return false;
-        for (let i = 0; i < len; i++) sel.modify('extend', 'backward', 'character');
-        const ok = document.execCommand('bold', false, null);
-        sel.collapseToEnd();
-        return ok;
-      }, [block.content.length]);
-      await sleep(200);
     } else if (block.type === 'image') {
       const imgUrl = imageUrls[block.id - 1];
       const imgLink = business?.image_links?.[block.id] || business?.image_links?.[`anchor${block.id}`] || null;
