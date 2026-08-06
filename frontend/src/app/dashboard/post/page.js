@@ -537,9 +537,10 @@ function NewPostContent() {
         if (subLoading) return; // 구독 여부가 확정된 뒤 한 번만 로드 (비구독자용 예시 계정 깜빡임 방지)
         const loadAccounts = async () => {
             const { data: { user } } = await supabase.auth.getUser();
-            const { data: fetched } = await supabase.from('naver_accounts')
-                .select('id, naver_id, concept, custom_content_prompt, biz_map_place_name, biz_map_address, biz_cta_title, biz_cta_subtitle, biz_cta_image_url, biz_footer_text, biz_tel')
+            const { data: fetched, error: fetchErr } = await supabase.from('naver_accounts')
+                .select('*')
                 .eq('user_id', user?.id);
+            if (fetchErr) console.error('[loadAccounts Error]', fetchErr);
             let data = fetched || [];
             if (!isSubscribed && data.length === 0) {
                 data = [DEMO_ACCOUNT];
