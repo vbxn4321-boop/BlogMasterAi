@@ -15,7 +15,7 @@ const PG_ERROR_MESSAGES = {
     'PGRST116': '해당 데이터를 찾을 수 없습니다.',
 };
 
-const DEFAULT_FALLBACK = '처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+const DEFAULT_FALLBACK = '일시적인 서버 시스템 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
 
 export function toKoreanErrorMessage(err, fallback = DEFAULT_FALLBACK) {
     if (!err) return fallback;
@@ -23,10 +23,21 @@ export function toKoreanErrorMessage(err, fallback = DEFAULT_FALLBACK) {
     const code = err.code;
     if (code && PG_ERROR_MESSAGES[code]) return PG_ERROR_MESSAGES[code];
 
-    const msg = typeof err === 'string' ? err : err.message;
-    if (typeof msg === 'string' && msg.trim() && /[가-힣]/.test(msg)) {
-        // 한글이 섞여 있으면 우리가 직접 작성한 안내 문구로 보고 그대로 사용한다.
-        return msg;
+    const rawMsg = typeof err === 'string' ? err : err.message;
+    if (typeof rawMsg !== 'string' || !rawMsg.trim()) return fallback;
+
+    // 개발용 기술 에러 (SyntaxError, Unexpected identifier, TypeError, Cannot read, Failed to fetch 등)
+    const isTechnicalError = /SyntaxError|TypeError|Unexpected identifier|Unexpected token|Failed to fetch|NetworkError|Cannot read properties/i.test(rawMsg);
+
+    if (isTechnicalError) {
+        const summaryMatch = rawMsg.match(/Unexpected identifier '([^']+)'|SyntaxError: ([^\n]+)/i);
+        const detail = summaryMatch ? (summaryMatch[1] || summaryMatch[2]) : rawMsg.slice(0, 35);
+        return `일시적인 시스템 처리 오류가 발생했습니다. (${detail})\n개발팀에 자동 보고되었으며 원인을 확인 중입니다. 잠시 후 다시 시도해 주세요!`;
     }
+
+    if (/[가-힣]/.test(rawMsg)) {
+        return rawMsg;
+    }
+
     return fallback;
 }
