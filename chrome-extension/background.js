@@ -565,27 +565,34 @@ async function getAbsoluteCoords(tabId, editorFrameId, func, args = []) {
 // 엉뚱한 곳으로 들어가거나 사라지는 간헐적 버그 방지 — Input.insertText는 특정
 // 요소를 지정하지 않고 현재 포커스 위치에 그대로 흘려넣기 때문에 반드시 필요함)
 async function ensureBodyFocus(tabId, editorFrameId) {
-  const isFocused = await evalInEditor(tabId, editorFrameId, () => {
-    const active = document.activeElement;
-    if (!active) return false;
-    const section = active.closest('.se-section');
-    if (!section || section.classList.contains('se-section-documentTitle')) return false;
-    return active.isContentEditable || !!active.closest('[contenteditable="true"]');
+  const isFocusedInTextPara = await evalInEditor(tabId, editorFrameId, () => {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return false;
+    const node = sel.anchorNode;
+    if (!node) return false;
+    const parentEl = node.nodeType === 1 ? node : node.parentElement;
+    if (!parentEl) return false;
+    // 이미지, 인용구 박스, 지도, 외곽 툴바 내부면 false
+    if (parentEl.closest('.se-component-image, .se-component-map, .se-component-oglink, .se-quote, .se-quotation-container')) {
+      return false;
+    }
+    // 제목 섹션 내부면 false
+    if (parentEl.closest('.se-section-documentTitle')) return false;
+    // 본문 text-paragraph 또는 module-text p 내부인지 확인
+    return !!(parentEl.closest('.se-text-paragraph') || parentEl.closest('.se-module-text') || parentEl.closest('.se-component-text'));
   });
 
-  if (isFocused) return true;
+  if (isFocusedInTextPara) return true;
 
-  console.warn('[AUTOMATION] 포커스가 본문 영역을 벗어남 — 본문/마지막 단락으로 재조정');
+  console.warn('[AUTOMATION] 포커스가 본문 텍스트 단락을 벗어남 — 본문 단락 재조정');
 
   const bodyCoords = await getAbsoluteCoords(tabId, editorFrameId, () => {
     const paras = document.querySelectorAll(
-      '.se-component-holder .se-text-paragraph, ' +
+      '.se-component-text .se-text-paragraph, ' +
       '.se-main-container .se-section:not(.se-section-documentTitle) .se-text-paragraph, ' +
       '.se-components .se-section:not(.se-section-documentTitle) .se-text-paragraph, ' +
       '.se-section-text .se-text-paragraph, ' +
-      '.se-module-text:not(.se-documentTitle .se-module-text) p, ' +
-      '[contenteditable="true"]:not(.se-documentTitle [contenteditable="true"]) p, ' +
-      '[contenteditable="true"]:not(.se-documentTitle [contenteditable="true"])'
+      '.se-module-text:not(.se-documentTitle .se-module-text) p'
     );
     if (paras.length > 0) {
       const last = paras[paras.length - 1];
@@ -596,7 +603,7 @@ async function ensureBodyFocus(tabId, editorFrameId) {
       }
     }
 
-    // 2차 폴백: 단락이 아직 없을 때 (첫 본문 타이핑 시) 본문 영역 전체 섹션을 클릭
+    // 2차 폴백: 단락이 아직 없을 때 본문 영역 전체 섹션을 클릭
     const bodySection = document.querySelector(
       '.se-main-container .se-section:not(.se-section-documentTitle), ' +
       '.se-components .se-section:not(.se-section-documentTitle), ' +
