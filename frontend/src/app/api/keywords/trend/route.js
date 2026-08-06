@@ -17,7 +17,7 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Keywords array is required' }, { status: 400 });
         }
 
-        const engineUrl = `${process.env.ENGINE_API_URL || 'http://localhost:4000'}/api/keywords/trend`;
+        const engineUrl = `${process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app'}/api/keywords/trend`;
 
         const response = await fetch(engineUrl, {
             method: 'POST',

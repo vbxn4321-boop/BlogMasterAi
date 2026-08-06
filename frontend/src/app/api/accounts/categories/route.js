@@ -7,7 +7,7 @@ export async function GET(req) {
 
         if (!accountId) return NextResponse.json({ error: 'accountId required' }, { status: 400 });
 
-        const engineUrl = `${process.env.ENGINE_API_URL || 'http://localhost:4000'}/api/accounts/${accountId}/categories`;
+        const engineUrl = `${process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app'}/api/accounts/${accountId}/categories`;
         const authKey = process.env.ENGINE_API_SECRET;
 
         const response = await fetch(engineUrl, {

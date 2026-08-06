@@ -11,7 +11,7 @@ export async function GET(req) {
         const query = searchParams.get('query');
         if (!query) return NextResponse.json({ error: 'Query is required' }, { status: 400 });
 
-        const engineUrl = `${process.env.ENGINE_API_URL || 'http://localhost:4000'}/api/naver/search-place?query=${encodeURIComponent(query)}`;
+        const engineUrl = `${process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app'}/api/naver/search-place?query=${encodeURIComponent(query)}`;
         console.log(`[Search Route] Calling Engine: ${engineUrl}`);
         
         const response = await fetch(engineUrl, {

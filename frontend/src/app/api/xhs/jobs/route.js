@@ -10,7 +10,7 @@ export async function POST(request) {
         const { source_url } = await request.json();
         if (!source_url) return NextResponse.json({ error: 'source_url이 필요합니다.' }, { status: 400 });
 
-        const engineUrl = process.env.ENGINE_API_URL || 'http://localhost:4000';
+        const engineUrl = process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app';
         const engineSecret = process.env.ENGINE_API_SECRET;
 
         const response = await fetch(`${engineUrl}/api/xhs/jobs`, {

@@ -26,7 +26,7 @@ export async function POST() {
             .maybeSingle();
 
         if (subscription?.status === 'active') {
-            const engineUrl = `${process.env.ENGINE_API_URL || 'http://localhost:4000'}/api/billing/cancel`;
+            const engineUrl = `${process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app'}/api/billing/cancel`;
             const cancelRes = await fetch(engineUrl, {
                 method: 'POST',
                 headers: {

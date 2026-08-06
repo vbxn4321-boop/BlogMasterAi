@@ -7,7 +7,7 @@ export async function POST() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-        const engineUrl = `${process.env.ENGINE_API_URL || 'http://localhost:4000'}/api/billing/cancel`;
+        const engineUrl = `${process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app'}/api/billing/cancel`;
 
         const response = await fetch(engineUrl, {
             method: 'POST',

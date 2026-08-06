@@ -57,7 +57,7 @@ export async function POST(req) {
             }
         }
 
-        const engineUrl = `${process.env.ENGINE_API_URL || 'http://localhost:4000'}/api/keywords/analyze`;
+        const engineUrl = `${process.env.ENGINE_API_URL || 'https://resplendent-endurance-production-ee32.up.railway.app'}/api/keywords/analyze`;
         console.log('3. Fetching from Engine:', engineUrl);
 
         const response = await fetch(engineUrl, {
