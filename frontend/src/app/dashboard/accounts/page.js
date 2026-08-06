@@ -101,7 +101,7 @@ export default function AccountsPage() {
 
     // 화면에는 예시 계정(비구독자)을 함께 보여주되, 개수 표시/3개 제한 로직은
     // 실제 accounts 상태를 그대로 사용해 기존 동작을 바꾸지 않는다.
-    const displayAccounts = accounts;
+    const displayAccounts = (!isSubscribed && accounts.length === 0) ? [DEMO_ACCOUNT] : accounts;
 
     const loadAccounts = async () => {
         const { data: { user } } = await supabase.auth.getUser();

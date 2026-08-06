@@ -540,7 +540,10 @@ function NewPostContent() {
             const { data: fetched } = await supabase.from('naver_accounts')
                 .select('id, naver_id, concept, custom_content_prompt, biz_map_place_name, biz_map_address, biz_cta_title, biz_cta_subtitle, biz_cta_image_url, biz_footer_text, biz_tel')
                 .eq('user_id', user?.id);
-            const data = fetched || [];
+            let data = fetched || [];
+            if (!isSubscribed && data.length === 0) {
+                data = [DEMO_ACCOUNT];
+            }
             setAccounts(data);
 
             // 저장된 초안 복원 시도
@@ -559,8 +562,6 @@ function NewPostContent() {
                         if (draft.previews?.length > 0) setPreviews(draft.previews);
                         if (typeof draft.activePreviewIdx === 'number') setActivePreviewIdx(draft.activePreviewIdx);
                         // URL ?topic=/main_keyword=/sub_keywords= 파라미터가 있으면 드래프트보다 우선 적용
-                        // (추천 키워드 클릭이나 대시보드 키워드 대화창에서 확정한 경우 — 주제뿐 아니라
-                        // 핵심/서브 키워드 심화설정에도 채워 SEO 타겟을 고정한다)
                         const quickPrefill = readQuickPrefillFromUrl();
                         if (quickPrefill) setForm(f => ({ ...f, ...quickPrefill }));
                         isDraftLoaded.current = true;
@@ -573,14 +574,13 @@ function NewPostContent() {
             if (data?.length > 0) setForm(f => ({ ...f, naver_account_id: data[0].id }));
 
             // URL ?topic=/main_keyword=/sub_keywords= 파라미터로 자동 입력
-            // (추천 키워드 클릭 또는 대시보드 키워드 대화창에서 확정한 경우)
             const quickPrefill = readQuickPrefillFromUrl();
             if (quickPrefill) setForm(f => ({ ...f, ...quickPrefill }));
 
             isDraftLoaded.current = true;
         };
         loadAccounts();
-    }, [subLoading]);
+    }, [subLoading, isSubscribed]);
 
     useEffect(() => {
         const fetchCategories = async () => {
@@ -1537,10 +1537,24 @@ function NewPostContent() {
                                 </label>
                                 <select className="select-field" value={form.naver_account_id}
                                     onChange={e => setForm({ ...form, naver_account_id: e.target.value })} required>
-                                    {accounts.map(a => (
-                                        <option key={a.id} value={a.id}>{displayNaverId(a.naver_id)} ({a.concept})</option>
-                                    ))}
+                                    {accounts.length === 0 ? (
+                                        <option value="">등록된 네이버 계정이 없습니다</option>
+                                    ) : (
+                                        accounts.map(a => (
+                                            <option key={a.id} value={a.id}>{displayNaverId(a.naver_id)} ({a.concept}{a.id === 'demo-account' ? ' - 체험용' : ''})</option>
+                                        ))
+                                    )}
                                 </select>
+                                {accounts.length === 0 && (
+                                    <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(239, 68, 68, 0.08)', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                        <span style={{ fontSize: 13, color: '#ef4444', fontWeight: 500 }}>
+                                            ⚠️ 등록된 네이버 계정이 없습니다. 포스팅 작성을 위해 먼저 계정을 등록해 주세요.
+                                        </span>
+                                        <button type="button" onClick={() => router.push('/dashboard/accounts')} className="btn-secondary" style={{ fontSize: 12, padding: '4px 10px', height: 'auto', whiteSpace: 'nowrap' }}>
+                                            계정 등록하러 가기 →
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
