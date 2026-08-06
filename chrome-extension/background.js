@@ -669,8 +669,6 @@ function splitIntoSentences(text) {
 async function typeViaDebugger(tabId, text) {
   if (!text) return;
   // 문장 중간에 억지로 삽입된 불필요한 줄바꿈(\n) 정제:
-  // 마침표(.), 물음표(?), 느낌표(!), 콜론(:), 닫는 괄호 등이 없는 문장 중간의 단일 \n은 공백으로 통합.
-  // (예: "갖게 되\n는 거죠" -> "갖게 되는 거죠")
   const cleanedText = text
     .replace(/([^\.!\?\n])\n+([^\.!\?\n])/g, '$1 $2')
     .replace(/[ \t]{2,}/g, ' ');
@@ -680,17 +678,50 @@ async function typeViaDebugger(tabId, text) {
   for (let i = 0; i < paragraphs.length; i++) {
     const para = paragraphs[i].trim();
     if (para) {
-      const sentences = splitIntoSentences(para);
-      for (const sentence of sentences) {
-        // Input.insertText는 서로게이트 쌍 이모지(📞💬 등 U+FFFF 초과) 뒤 텍스트를 잘라버리는
-        // Chrome CDP 버그가 있으므로, 이모지 경계마다 분리해서 각각 삽입한다.
-        const segments = sentence.split(/(\p{Extended_Pictographic})/u).filter(s => s);
-        for (const seg of segments) {
-          await chrome.debugger.sendCommand({ tabId }, 'Input.insertText', { text: seg });
-          await sleep(20);
+      // [B]...[/B] 태그를 감지해 문단 분할 없이 인라인(Ctrl+B) 볼드 처리
+      const chunks = [];
+      const regex = /\[B\]([\s\S]*?)\[\/B\]/gi;
+      let lastIndex = 0;
+      let match;
+      while ((match = regex.exec(para)) !== null) {
+        if (match.index > lastIndex) {
+          chunks.push({ text: para.substring(lastIndex, match.index), isBold: false });
         }
-        // 문장 하나가 통째로 '뿅' 나타나지 않도록, 다음 문장 전에 사람이 잠깐 쉬는 듯한 랜덤 딜레이
-        await sleep(200 + Math.random() * 200); // 200~400ms
+        chunks.push({ text: match[1], isBold: true });
+        lastIndex = regex.lastIndex;
+      }
+      if (lastIndex < para.length) {
+        chunks.push({ text: para.substring(lastIndex), isBold: false });
+      }
+
+      let isCurrentlyBold = false;
+      for (const chunk of chunks) {
+        if (!chunk.text) continue;
+
+        // 볼드 상태 전환이 필요한 경우 Ctrl+B (modifiers: 2) 토글 전송
+        if (chunk.isBold !== isCurrentlyBold) {
+          await sendKey(tabId, 'b', 'KeyB', 66, 2);
+          await sleep(50);
+          isCurrentlyBold = chunk.isBold;
+        }
+
+        const sentences = splitIntoSentences(chunk.text);
+        for (const sentence of sentences) {
+          // Input.insertText는 서로게이트 쌍 이모지(📞💬 등 U+FFFF 초과) 뒤 텍스트를 잘라버리는
+          // Chrome CDP 버그가 있으므로, 이모지 경계마다 분리해서 각각 삽입한다.
+          const segments = sentence.split(/(\p{Extended_Pictographic})/u).filter(s => s);
+          for (const seg of segments) {
+            await chrome.debugger.sendCommand({ tabId }, 'Input.insertText', { text: seg });
+            await sleep(20);
+          }
+          await sleep(150 + Math.random() * 150);
+        }
+      }
+
+      // 문단 완료 후 볼드 상태가 켜져 있다면 해제
+      if (isCurrentlyBold) {
+        await sendKey(tabId, 'b', 'KeyB', 66, 2);
+        await sleep(50);
       }
     }
     if (i < paragraphs.length - 1) {
@@ -720,11 +751,11 @@ async function sendKey(tabId, key, code, keyCode, modifiers = 0) {
 // ════════════════════════════════════════════════════════════
 function parseBlocks(content) {
   const tokens = [];
-  // AI가 생성한 [B], [/B] 태그 및 파생 태그 정제 (단락 파편화 방지)
+  // AI가 생성한 변형 B 태그 표준화 ([B]...[/B])
   let remaining = (content || '')
-    .replace(/\[\/\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '')
-    .replace(/\[\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '')
-    .replace(/\[\/?B\]/gi, '')
+    .replace(/\[\/\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '[/B]')
+    .replace(/\[\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '[B]')
+    .replace(/\[B\]([^\[\]]{1,50}?)\[B\]/gi, '[B]$1[/B]')
     .replace(/\[IMAGE_?ANCHOR_?(\d+)\]/gi, '[IMAGE_ANCHOR_$1]')
     .replace(/\[\/?(QUOTEANCHOR\d*|IMAGEQUOTE\d*|QUOTEIMAGE\d*)\]/gi, '');
   // AI가 프롬프트 지시를 어기고 마크다운 불릿(줄 앞 *, - )으로 목록을 쓴 경우, 그대로 타이핑하면
