@@ -1,5 +1,6 @@
 [build]
 builder = "nixpacks"
+buildCommand = "npm install --workspace=backend"
 
 [deploy]
 startCommand = "node backend/engine_api.js"

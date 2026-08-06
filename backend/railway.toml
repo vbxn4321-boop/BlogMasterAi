@@ -1,5 +1,6 @@
 [build]
 builder = "nixpacks"
+buildCommand = "echo 'Backend ready'"
 
 [deploy]
 startCommand = "node engine_api.js"
