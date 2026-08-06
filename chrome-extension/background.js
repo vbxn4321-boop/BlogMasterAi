@@ -28,6 +28,13 @@ chrome.runtime.onInstalled.addListener(async () => {
   await getOrCreateDeviceId();
 });
 
+// chrome.debugger가 예기치 않게 detach되면("Detached while handling command" 에러의 원인) 이유를
+// 알 수 없어 원인 파악이 어려웠다. Chrome이 제공하는 reason(예: target_closed, canceled_by_user,
+// replaced_with_devtools 등)을 로그에 남겨 다음 발생 시 바로 원인을 알 수 있게 한다.
+chrome.debugger.onDetach.addListener((source, reason) => {
+  console.warn('[BG] Debugger detached — tabId:', source.tabId, 'reason:', reason);
+});
+
 // ── Storage helpers ──────────────────────────────────────────
 function get(keys) {
   return new Promise(resolve => chrome.storage.local.get(keys, resolve));
@@ -49,7 +56,7 @@ async function handleSessionExpired() {
   chrome.runtime.sendMessage({ type: 'SESSION_EXPIRED' }).catch(() => {});
   chrome.notifications.create('session_expired', {
     type: 'basic',
-    iconUrl: 'icons/icon128.png',
+    iconUrl: chrome.runtime.getURL('icons/icon128.png'),
     title: 'Blog Master — 연결 해제됨',
     message: '토큰이 만료/재발급되었습니다. 설정 페이지에서 새 토큰을 발급받아 다시 연결해 주세요.',
     priority: 2
@@ -621,12 +628,19 @@ function splitIntoSentences(text) {
 
 async function typeViaDebugger(tabId, text) {
   if (!text) return;
-  // 연속된 빈 줄을 최대 1개로 압축 (Puppeteer typeText와 동일)
-  const normalized = text.replace(/\n{3,}/g, '\n\n');
-  const lines = normalized.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i]) {
-      const sentences = splitIntoSentences(lines[i]);
+  // 문장 중간에 억지로 삽입된 불필요한 줄바꿈(\n) 정제:
+  // 마침표(.), 물음표(?), 느낌표(!), 콜론(:), 닫는 괄호 등이 없는 문장 중간의 단일 \n은 공백으로 통합.
+  // (예: "갖게 되\n는 거죠" -> "갖게 되는 거죠")
+  const cleanedText = text
+    .replace(/([^\.!\?\n])\n+([^\.!\?\n])/g, '$1 $2')
+    .replace(/[ \t]{2,}/g, ' ');
+
+  // 진짜 문단 구분(\n\n 또는 남은 \n)으로 분할
+  const paragraphs = cleanedText.split(/\n+/).filter(p => p.trim());
+  for (let i = 0; i < paragraphs.length; i++) {
+    const para = paragraphs[i].trim();
+    if (para) {
+      const sentences = splitIntoSentences(para);
       for (const sentence of sentences) {
         // Input.insertText는 서로게이트 쌍 이모지(📞💬 등 U+FFFF 초과) 뒤 텍스트를 잘라버리는
         // Chrome CDP 버그가 있으므로, 이모지 경계마다 분리해서 각각 삽입한다.
@@ -636,10 +650,10 @@ async function typeViaDebugger(tabId, text) {
           await sleep(20);
         }
         // 문장 하나가 통째로 '뿅' 나타나지 않도록, 다음 문장 전에 사람이 잠깐 쉬는 듯한 랜덤 딜레이
-        await sleep(400 + Math.random() * 300); // 400~700ms
+        await sleep(200 + Math.random() * 200); // 200~400ms
       }
     }
-    if (i < lines.length - 1) {
+    if (i < paragraphs.length - 1) {
       await sendKey(tabId, 'Return', 'Enter', 13);
     }
   }
@@ -1854,7 +1868,18 @@ async function runEditorAutomation(tabId, jobPayload) {
   for (let blockIdx = 0; blockIdx < blocks.length; blockIdx++) {
     const block = blocks[blockIdx];
     if (block.type === 'text') {
-      await ensureBodyFocus(tabId, eFid);
+      // 포커스 복구 실패를 무시하고 계속 진행하면, 이후 모든 블록이 어디로
+      // 타이핑되는지 모르는 상태로 조용히 실패만 반복하며 진행이 멈춘 것처럼
+      // 보이게 된다 (사용자가 결국 수동 취소하게 됨). 한 번 더 재시도 후에도
+      // 실패하면 여기서 바로 명확한 에러로 중단한다.
+      let focused = await ensureBodyFocus(tabId, eFid);
+      if (!focused) {
+        await sleep(500);
+        focused = await ensureBodyFocus(tabId, eFid);
+      }
+      if (!focused) {
+        throw new Error('본문 영역 포커스를 복구하지 못했습니다 (에디터 상태 이상 — 자동발행을 중단합니다)');
+      }
       await typeViaDebugger(tabId, block.content);
       await sleep(100);
       // 다음 토큰이 인라인 [B]면 문장이 그대로 이어지는 것이므로 단락 구분 Enter를 넣지 않는다.
@@ -1868,16 +1893,18 @@ async function runEditorAutomation(tabId, jobPayload) {
       // bold는 인라인 — 텍스트 중간에 위치하므로 뒤에 Enter 없음
       await typeViaDebugger(tabId, block.content);
       await sleep(100);
-      for (let i = 0; i < block.content.length; i++) {
-        await sendKey(tabId, 'ArrowLeft', 'ArrowLeft', 37, 8); // Shift+←
-        await sleep(10);
-      }
-      await sleep(100);
-      await sendKey(tabId, 'b', 'KeyB', 66, 2); // Ctrl+B
+      // Shift+ArrowLeft 반복 + Ctrl+B 단축키 시뮬레이션 방식은 네이버 에디터에서
+      // 선택/단축키 인식이 간헐적으로 실패해 문장이 단락으로 쪼개지는 문제가 있었다.
+      // Selection.modify + execCommand('bold')로 에디터 프레임 안에서 직접 적용하도록 교체.
+      await evalInEditor(tabId, eFid, (len) => {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return false;
+        for (let i = 0; i < len; i++) sel.modify('extend', 'backward', 'character');
+        const ok = document.execCommand('bold', false, null);
+        sel.collapseToEnd();
+        return ok;
+      }, [block.content.length]);
       await sleep(200);
-      await sendKey(tabId, 'ArrowRight', 'ArrowRight', 39); // → 커서 끝으로
-      await sleep(100);
-      await sendKey(tabId, 'b', 'KeyB', 66, 2); // Ctrl+B OFF
     } else if (block.type === 'image') {
       const imgUrl = imageUrls[block.id - 1];
       const imgLink = business?.image_links?.[block.id] || business?.image_links?.[`anchor${block.id}`] || null;
