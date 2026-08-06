@@ -534,15 +534,21 @@ function NewPostContent() {
     const supabase = createClient();
 
     useEffect(() => {
-        if (subLoading) return; // 구독 여부가 확정된 뒤 한 번만 로드 (비구독자용 예시 계정 깜빡임 방지)
+        if (subLoading) return; // 구독 여부가 확정된 뒤 한 번만 로드
         const loadAccounts = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            const { data: fetched, error: fetchErr } = await supabase.from('naver_accounts')
-                .select('*')
-                .eq('user_id', user?.id);
-            if (fetchErr) console.error('[loadAccounts Error]', fetchErr);
-            let data = fetched || [];
-            if (!isSubscribed && data.length === 0) {
+            let userObj = (await supabase.auth.getUser())?.data?.user;
+            if (!userObj) {
+                userObj = (await supabase.auth.getSession())?.data?.session?.user;
+            }
+            let data = [];
+            if (userObj) {
+                const { data: fetched, error: fetchErr } = await supabase.from('naver_accounts')
+                    .select('*')
+                    .eq('user_id', userObj.id);
+                if (fetchErr) console.error('[loadAccounts Error]', fetchErr);
+                data = fetched || [];
+            }
+            if (data.length === 0) {
                 data = [DEMO_ACCOUNT];
             }
             setAccounts(data);
@@ -562,7 +568,6 @@ function NewPostContent() {
                         }));
                         if (draft.previews?.length > 0) setPreviews(draft.previews);
                         if (typeof draft.activePreviewIdx === 'number') setActivePreviewIdx(draft.activePreviewIdx);
-                        // URL ?topic=/main_keyword=/sub_keywords= 파라미터가 있으면 드래프트보다 우선 적용
                         const quickPrefill = readQuickPrefillFromUrl();
                         if (quickPrefill) setForm(f => ({ ...f, ...quickPrefill }));
                         isDraftLoaded.current = true;
@@ -571,7 +576,7 @@ function NewPostContent() {
                 }
             } catch (_) {}
 
-            // 초안 없음: 기본 계정만 설정
+            // 초안 없음: 기본 계정 설정
             if (data?.length > 0) setForm(f => ({ ...f, naver_account_id: data[0].id }));
 
             // URL ?topic=/main_keyword=/sub_keywords= 파라미터로 자동 입력
