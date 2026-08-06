@@ -447,8 +447,8 @@ ${footerText}
             });
         }
 
-        // 6. Final Cleanup & Safety
-        content = content.replace(/\*\*/g, '').replace(/__/g, '').replace(/_/g, '').replace(/`/g, '');
+        // 6. Final Cleanup & Safety (마크다운 ** 및 백틱 제거, 태그 언더스코어 보존)
+        content = content.replace(/\*\*/g, '').replace(/`/g, '');
 
         // Remove footer markers that AI shouldn't output
         content = content.replace(/-{2,}\s*\[?필수 풋터 시작\]?\s*-{2,}/g, '');

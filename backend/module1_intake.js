@@ -97,12 +97,12 @@ class SmartIntake {
             let initialized = false;
             for (const m of models) {
                 try {
-                    this.model = this.genAI.getGenerativeModel({ model: m });
+                    this.model = this.genAI.getGenerativeModel({ model: m, generationConfig: { responseMimeType: 'application/json' } });
                     initialized = true;
                     break;
                 } catch (e) { }
             }
-            if (!initialized) this.model = this.genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+            if (!initialized) this.model = this.genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { responseMimeType: 'application/json' } });
         }
     }
 
@@ -313,7 +313,24 @@ ${realStats ? `- REAL STATS FOUND: 검색량=${realStats.monthly_volume}, 발행
 
         const result = await generateContentWithRetry(this.model, promptParts, this.genAI);
         const response = await result.response;
-        return JSON.parse(response.text().replace(/```json|```/g, '').trim());
+        const rawText = response.text();
+        let cleanedText = rawText.replace(/```json|```/g, '').trim();
+        const firstBrace = cleanedText.indexOf('{');
+        const lastBrace = cleanedText.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            cleanedText = cleanedText.substring(firstBrace, lastBrace + 1);
+        }
+        try {
+            return JSON.parse(cleanedText);
+        } catch (parseErr) {
+            console.error('[SmartIntake] JSON parse error:', parseErr.message, 'Raw text snippet:', rawText.slice(0, 300));
+            try {
+                const sanitized = cleanedText.replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ');
+                return JSON.parse(sanitized);
+            } catch (_) {
+                throw new Error(`AI 분석 결과 파싱 오류: ${parseErr.message}`);
+            }
+        }
     }
 
     async process(rawInput, keywordConfig = {}) {
