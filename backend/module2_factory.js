@@ -419,6 +419,9 @@ ${footerText}
         content = content.replace(/\[\/\]/g, '[/B]');
         content = content.replace(/\[\/\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '[/B]');
         content = content.replace(/\[\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '[B]');
+        // AI가 닫는 태그를 [/B] 대신 여는 태그 [B]로 다시 써서 [B]텍스트[B] 형태가 되는 경우
+        // (예: "[B]국내여행[B]은 비교적...") — 두 번째 [B]를 [/B]로 교정
+        content = content.replace(/\[B\]([^\[\]]{1,40}?)\[B\]/g, '[B]$1[/B]');
 
         // AI가 [IMAGEANCHOR1], [IMAGE_ANCHOR1], [IMAGEANCHOR_1] 등 언더스코어가 빠진 이미지 태그 표준화
         content = content.replace(/\[IMAGE_?ANCHOR_?(\d+)\]/gi, '[IMAGE_ANCHOR_$1]');
