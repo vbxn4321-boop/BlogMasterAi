@@ -455,7 +455,7 @@ function ProfileEditSection() {
         <div className="glass-card" style={{ marginBottom: 24 }}>
             <SectionHeader
                 icon="👤"
-                gradient="linear-gradient(135deg, #6366f1, #8b5cf6)"
+                gradient="linear-gradient(135deg, #6366f1, #00d9a3)"
                 title="회원정보 수정"
                 subtitle="본인 확인 후 가입 정보를 수정할 수 있습니다."
             />

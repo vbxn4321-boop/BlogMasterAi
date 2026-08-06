@@ -58,12 +58,12 @@ function MiniCard({ children, style }) {
 function MockTopNav({ active }) {
   return (
     <div style={{ height: 56, background: "#fff", borderBottom: "1px solid #e7e5e4", display: "flex", alignItems: "center", padding: "0 20px", gap: 20 }}>
-      <span style={{ fontSize: 15, fontWeight: 900, color: "#1b4332" }}>블로그 마스터 AI</span>
+      <span style={{ fontSize: 15, fontWeight: 900, color: "#00b894" }}>블로그 마스터 AI</span>
       {["대시보드", "네이버 계정", "새 포스팅", "황금 키워드", "순위 분석", "설정 및 구독"].map((m, i) => (
         <span key={m} style={{
           fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 8,
-          background: i === active ? "rgba(27,67,50,0.12)" : "transparent",
-          color: i === active ? "#1b4332" : "#a8a29e",
+          background: i === active ? "rgba(0,184,148,0.12)" : "transparent",
+          color: i === active ? "#00b894" : "#a8a29e",
         }}>
           {m}
         </span>
@@ -92,7 +92,7 @@ function CameraDemo({ shots, shotMs, elapsed, renderMock }) {
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
-        <span style={{ fontSize: 13, color: "#1b4332", flexShrink: 0 }}>▶</span>
+        <span style={{ fontSize: 13, color: "#00b894", flexShrink: 0 }}>▶</span>
         <span style={{ fontSize: 12.5, color: "#57534e", lineHeight: 1.5 }}>{shot.label}</span>
       </div>
     </div>
@@ -117,12 +117,12 @@ function PostFullPageMock({ typedTopic }) {
             <div style={{ fontSize: 11, fontWeight: 700, color: "#78716c", marginBottom: 10 }}>글 말투</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginBottom: 12 }}>
               {[["😊","친근한"],["💕","여성적"],["💪","남성적"],["😎","일상체"],["📋","건강"]].map(([emoji,label],i)=>(
-                <div key={label} style={{ textAlign:"center",padding:"8px 2px",borderRadius:10,fontSize:9,border:i===0?"1.5px solid #1b4332":"1px solid #e7e5e4",background:i===0?"rgba(27,67,50,0.08)":"#fff",color:i===0?"#1b4332":"#78716c",fontWeight:700 }}>
+                <div key={label} style={{ textAlign:"center",padding:"8px 2px",borderRadius:10,fontSize:9,border:i===0?"1.5px solid #00b894":"1px solid #e7e5e4",background:i===0?"rgba(0,184,148,0.08)":"#fff",color:i===0?"#00b894":"#78716c",fontWeight:700 }}>
                   <div style={{ fontSize: 15 }}>{emoji}</div>{label}
                 </div>
               ))}
             </div>
-            <div style={{ background:"rgba(27,67,50,0.06)",border:"1px solid rgba(27,67,50,0.25)",borderRadius:10,padding:12,fontSize:11,color:"#57534e",lineHeight:1.7 }}>
+            <div style={{ background:"rgba(0,184,148,0.06)",border:"1px solid rgba(0,184,148,0.25)",borderRadius:10,padding:12,fontSize:11,color:"#57534e",lineHeight:1.7 }}>
               오늘은 제가 직접 다녀온 곳을 소개해 드릴게요 😊<br/>솔직히 처음엔 별 기대 안 했는데, 가보니까 진짜 너무 좋더라고요.
             </div>
           </MiniCard>
@@ -130,27 +130,27 @@ function PostFullPageMock({ typedTopic }) {
             <div style={{ fontSize:11,fontWeight:700,color:"#78716c",marginBottom:10 }}>컨텐츠 생성 방식</div>
             <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6 }}>
               {["AI 추천","직접 입력","이미지 참조"].map((label,i)=>(
-                <div key={label} style={{ textAlign:"center",padding:"10px 4px",borderRadius:10,fontSize:10.5,fontWeight:700,border:i===1?"1.5px solid #1b4332":"1px solid #e7e5e4",background:i===1?"rgba(27,67,50,0.08)":"#fff",color:i===1?"#1b4332":"#78716c" }}>{label}</div>
+                <div key={label} style={{ textAlign:"center",padding:"10px 4px",borderRadius:10,fontSize:10.5,fontWeight:700,border:i===1?"1.5px solid #00b894":"1px solid #e7e5e4",background:i===1?"rgba(0,184,148,0.08)":"#fff",color:i===1?"#00b894":"#78716c" }}>{label}</div>
               ))}
             </div>
           </MiniCard>
           <MiniCard>
             <div style={{ fontSize:11,fontWeight:700,color:"#78716c",marginBottom:10 }}>주제가 되는 내용</div>
-            <div style={{ background:"#f7f5f3",border:"1.5px solid #1b4332",borderRadius:10,padding:"10px 12px",fontSize:13,color:"#1c1917",minHeight:20,marginBottom:10 }}>{typedTopic}<span className="demo-caret">|</span></div>
+            <div style={{ background:"#f7f5f3",border:"1.5px solid #00b894",borderRadius:10,padding:"10px 12px",fontSize:13,color:"#1c1917",minHeight:20,marginBottom:10 }}>{typedTopic}<span className="demo-caret">|</span></div>
             <div style={{ fontSize:10.5,fontWeight:700,color:"#78716c",marginBottom:6 }}>작성 세부 요청사항 (선택)</div>
             <div style={{ background:"#f7f5f3",border:"1px solid #e7e5e4",borderRadius:10,padding:"10px 12px",fontSize:11,color:"#c4c1bf" }}>예: 가족여행이니 접근성이 좋다는 내용을 꼭 넣어주세요.</div>
           </MiniCard>
           <MiniCard>
             <div style={{ fontSize:11,fontWeight:700,color:"#78716c",marginBottom:10 }}>언제 발행할까요?</div>
             <div style={{ display:"flex",gap:8 }}>
-              <div style={{ flex:1,textAlign:"center",padding:"10px",borderRadius:10,background:"#1b4332",color:"#fff",fontSize:12,fontWeight:700 }}>⚡ 즉시 발행</div>
+              <div style={{ flex:1,textAlign:"center",padding:"10px",borderRadius:10,background:"#00b894",color:"#fff",fontSize:12,fontWeight:700 }}>⚡ 즉시 발행</div>
               <div style={{ flex:1,textAlign:"center",padding:"10px",borderRadius:10,border:"1px solid #e7e5e4",color:"#78716c",fontSize:12,fontWeight:700 }}>🕐 예약 발행</div>
             </div>
           </MiniCard>
           <MiniCard style={{ marginBottom:0 }}>
             <div style={{ display:"flex",gap:8 }}>
               <span style={{ flex:1,textAlign:"center",padding:"12px",borderRadius:10,border:"1px solid #e7e5e4",fontSize:13,fontWeight:700,color:"#78716c" }}>원고 생성</span>
-              <span style={{ flex:1,textAlign:"center",padding:"12px",borderRadius:10,background:"#1b4332",fontSize:13,fontWeight:700,color:"#fff" }}>발행</span>
+              <span style={{ flex:1,textAlign:"center",padding:"12px",borderRadius:10,background:"#00b894",fontSize:13,fontWeight:700,color:"#fff" }}>발행</span>
             </div>
           </MiniCard>
         </div>
@@ -200,7 +200,7 @@ function KeywordsFullPageMock({ typedKeyword }) {
               <span style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"#a8a29e" }}>🔍</span>
               <div style={{ background:"#f7f5f3",border:"1px solid #e7e5e4",borderRadius:10,padding:"12px 14px 12px 38px",fontSize:13,color:"#1c1917" }}>{typedKeyword}<span className="demo-caret">|</span></div>
             </div>
-            <div style={{ padding:"0 20px",borderRadius:10,background:"#1b4332",color:"#fff",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",whiteSpace:"nowrap" }}>실시간 정밀 분석</div>
+            <div style={{ padding:"0 20px",borderRadius:10,background:"#00b894",color:"#fff",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",whiteSpace:"nowrap" }}>실시간 정밀 분석</div>
           </div>
         </MiniCard>
         <div style={{ display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:14 }}>
@@ -213,7 +213,7 @@ function KeywordsFullPageMock({ typedKeyword }) {
           <MiniCard style={{ flex:2,marginBottom:0 }}>
             <div style={{ fontSize:12,fontWeight:700,color:"#78716c",marginBottom:10 }}>최근 12개월 추이</div>
             <div style={{ height:90,display:"flex",alignItems:"flex-end",gap:4 }}>
-              {[40,55,45,70,60,80,65,90,75,85,95,88].map((h,i)=>(<div key={i} style={{ flex:1,height:`${h}%`,background:i===10?"#1b4332":"#d8f3dc",borderRadius:"2px 2px 0 0" }}/>))}
+              {[40,55,45,70,60,80,65,90,75,85,95,88].map((h,i)=>(<div key={i} style={{ flex:1,height:`${h}%`,background:i===10?"#00b894":"#d8f3dc",borderRadius:"2px 2px 0 0" }}/>))}
             </div>
           </MiniCard>
           <MiniCard style={{ flex:1,marginBottom:0 }}>
@@ -249,7 +249,7 @@ function AnalyticsResultCard({ title, rank }) {
       <div style={{ minWidth:0,flex:1 }}>
         <div style={{ fontSize:12.5,fontWeight:700,color:"#1c1917",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{title}</div>
         <div style={{ fontSize:10.5,color:"#a8a29e",marginTop:5,display:"flex",alignItems:"center",gap:5 }}>
-          <span style={{ background:"#d8f3dc",color:"#1b4332",padding:"1px 7px",borderRadius:20,fontWeight:700 }}>@myblog</span>2026.03.14
+          <span style={{ background:"#d8f3dc",color:"#00b894",padding:"1px 7px",borderRadius:20,fontWeight:700 }}>@myblog</span>2026.03.14
         </div>
       </div>
       <div style={{ textAlign:"right",flexShrink:0,marginLeft:12 }}>
@@ -271,7 +271,7 @@ function AnalyticsFullPageMock({ typedKeyword }) {
       <div style={{ padding:"0 20px 20px" }}>
         <div style={{ display:"flex",gap:10,marginBottom:16 }}>
           <div style={{ flex:1,background:"#fff",border:"1px solid #e7e5e4",borderRadius:10,padding:"12px 14px",fontSize:13,color:"#1c1917" }}>{typedKeyword}<span className="demo-caret">|</span></div>
-          <div style={{ padding:"0 20px",borderRadius:10,background:"#1b4332",color:"#fff",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",whiteSpace:"nowrap" }}>순위 검색</div>
+          <div style={{ padding:"0 20px",borderRadius:10,background:"#00b894",color:"#fff",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",whiteSpace:"nowrap" }}>순위 검색</div>
         </div>
         <div style={{ display:"flex",alignItems:"center",gap:6,background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.25)",borderRadius:10,padding:"9px 12px",fontSize:11,color:"#f59e0b",fontWeight:600,marginBottom:16 }}>⚠️ 네이버 검색 API 기준으로 조회된 결과입니다</div>
         <AnalyticsResultCard title="강남 맛집 찐맛집 리스트 총정리" rank={7}/>
@@ -300,7 +300,7 @@ function HeroDemoPanel({ tabIndex, elapsed, onJump }) {
       </div>
       <div style={{ display:"flex",gap:6,padding:"12px 14px",background:"#f7f5f3",borderTop:"1px solid #e7e5e4" }}>
         {HERO_TABS.map((t,i)=>(
-          <button key={t.key} onClick={()=>onJump(i)} style={{ flex:1,padding:"7px 4px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",border:i===tabIndex?"1.5px solid #1b4332":"1px solid #e7e5e4",background:i===tabIndex?"rgba(27,67,50,0.08)":"#fff",color:i===tabIndex?"#1b4332":"#78716c",transition:"all 0.2s ease" }}>{t.label}</button>
+          <button key={t.key} onClick={()=>onJump(i)} style={{ flex:1,padding:"7px 4px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",border:i===tabIndex?"1.5px solid #00b894":"1px solid #e7e5e4",background:i===tabIndex?"rgba(0,184,148,0.08)":"#fff",color:i===tabIndex?"#00b894":"#78716c",transition:"all 0.2s ease" }}>{t.label}</button>
         ))}
       </div>
     </div>
@@ -318,7 +318,7 @@ function ProcessDemoPanel({ stepIndex, elapsed, onJump }) {
       <div style={{ padding:28,minHeight:320,display:"flex",flexDirection:"column",justifyContent:"center",background:"#fff" }}>
         {stepIndex===0&&(<div>
           <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16 }}>
-            {["AI 추천","직접 입력","이미지 참조"].map((label,i)=>(<div key={label} style={{ textAlign:"center",padding:"10px 6px",borderRadius:10,fontSize:11,fontWeight:700,border:i===1?"1.5px solid #1b4332":"1px solid #e7e5e4",background:i===1?"rgba(27,67,50,0.08)":"#fff",color:i===1?"#1b4332":"#78716c" }}>{label}</div>))}
+            {["AI 추천","직접 입력","이미지 참조"].map((label,i)=>(<div key={label} style={{ textAlign:"center",padding:"10px 6px",borderRadius:10,fontSize:11,fontWeight:700,border:i===1?"1.5px solid #00b894":"1px solid #e7e5e4",background:i===1?"rgba(0,184,148,0.08)":"#fff",color:i===1?"#00b894":"#78716c" }}>{label}</div>))}
           </div>
           <div style={{ fontSize:11,color:"#78716c",marginBottom:6,fontWeight:700 }}>주제 입력</div>
           <div style={{ background:"#f7f5f3",border:"1px solid #e7e5e4",borderRadius:12,padding:"12px 14px",fontSize:14,color:"#1c1917",minHeight:20 }}>{typedTopic}<span className="demo-caret">|</span></div>
@@ -332,16 +332,16 @@ function ProcessDemoPanel({ stepIndex, elapsed, onJump }) {
           <div style={{ background:"#f7f5f3",border:"1px solid #e7e5e4",borderRadius:12,padding:18,fontSize:13.5,color:"#57534e",lineHeight:1.7,minHeight:116 }}>{typedBody}<span className="demo-caret">|</span></div>
         </div>)}
         {stepIndex===2&&(<div style={{ display:"flex",gap:20,alignItems:"center" }}>
-          <div style={{ width:110,height:110,borderRadius:14,background:"#1b4332",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:34 }}>🖼️</div>
+          <div style={{ width:110,height:110,borderRadius:14,background:"#00b894",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:34 }}>🖼️</div>
           <div><div style={{ fontSize:15,fontWeight:700,color:"#1c1917" }}>썸네일 생성 중...</div><div style={{ fontSize:13,color:"#a8a29e",marginTop:4 }}>4가지 스타일 중 자동 선택 · Sharp 합성</div></div>
         </div>)}
         {stepIndex===3&&(<div>
-          <button style={{ background:"#1b4332",color:"#fff",border:"none",borderRadius:12,padding:"12px 28px",fontSize:14,fontWeight:700,marginBottom:18,cursor:"default" }}>발행</button>
-          <div style={{ display:"flex",alignItems:"center",gap:8,background:"rgba(27,67,50,0.08)",border:"1px solid rgba(27,67,50,0.3)",borderRadius:10,padding:"10px 14px",marginBottom:8 }}>
-            <span style={{ width:7,height:7,borderRadius:"50%",background:"#1b4332",animation:"pulse 1.4s ease-in-out infinite" }}/>
-            <span style={{ fontSize:12,fontWeight:700,color:"#1b4332" }}>네이버 발행 중 · {publishPct}%</span>
+          <button style={{ background:"#00b894",color:"#fff",border:"none",borderRadius:12,padding:"12px 28px",fontSize:14,fontWeight:700,marginBottom:18,cursor:"default" }}>발행</button>
+          <div style={{ display:"flex",alignItems:"center",gap:8,background:"rgba(0,184,148,0.08)",border:"1px solid rgba(0,184,148,0.3)",borderRadius:10,padding:"10px 14px",marginBottom:8 }}>
+            <span style={{ width:7,height:7,borderRadius:"50%",background:"#00b894",animation:"pulse 1.4s ease-in-out infinite" }}/>
+            <span style={{ fontSize:12,fontWeight:700,color:"#00b894" }}>네이버 발행 중 · {publishPct}%</span>
           </div>
-          <div style={{ background:"rgba(27,67,50,0.15)",height:6,borderRadius:3 }}><div style={{ height:"100%",width:`${publishPct}%`,background:"#1b4332",borderRadius:3,transition:"width 0.1s linear" }}/></div>
+          <div style={{ background:"rgba(0,184,148,0.15)",height:6,borderRadius:3 }}><div style={{ height:"100%",width:`${publishPct}%`,background:"#00b894",borderRadius:3,transition:"width 0.1s linear" }}/></div>
         </div>)}
         {stepIndex===4&&(<div style={{ background:"#fff",border:"1px solid #e7e5e4",borderRadius:12,padding:"24px 26px",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
           <div><div style={{ fontSize:12,fontWeight:700,color:"#a8a29e",textTransform:"uppercase",letterSpacing:0.5 }}>검색 순위</div><div style={{ fontSize:34,fontWeight:900,color:"#1c1917" }}>#7위</div><div style={{ fontSize:13,color:"#78716c",marginTop:2 }}>강남 맛집 · 블로그 탭</div></div>
@@ -349,11 +349,11 @@ function ProcessDemoPanel({ stepIndex, elapsed, onJump }) {
         </div>)}
       </div>
       <div style={{ borderTop:"1px solid #e7e5e4",padding:"16px 20px",display:"flex",gap:8,alignItems:"flex-start",background:"#f7f5f3" }}>
-        <span style={{ fontSize:14,color:"#1b4332",flexShrink:0 }}>▶</span>
+        <span style={{ fontSize:14,color:"#00b894",flexShrink:0 }}>▶</span>
         <span style={{ fontSize:13.5,color:"#57534e",lineHeight:1.6 }}><strong style={{ color:"#1c1917" }}>STEP {step.num}.</strong> {step.desc}</span>
       </div>
       <div style={{ display:"flex",gap:6,justifyContent:"center",padding:"10px 0 14px",background:"#f7f5f3" }}>
-        {PROCESS_STEPS.map((_,i)=>(<span key={i} onClick={()=>onJump(i)} style={{ width:i===stepIndex?16:6,height:6,borderRadius:3,cursor:"pointer",background:i===stepIndex?"#1b4332":"#d6d3d1",transition:"all 0.3s ease" }}/>))}
+        {PROCESS_STEPS.map((_,i)=>(<span key={i} onClick={()=>onJump(i)} style={{ width:i===stepIndex?16:6,height:6,borderRadius:3,cursor:"pointer",background:i===stepIndex?"#00b894":"#d6d3d1",transition:"all 0.3s ease" }}/>))}
       </div>
     </div>
   );
@@ -426,7 +426,7 @@ export default function HomePage() {
       <header style={{ position:"fixed",top:0,left:0,right:0,zIndex:1000,transition:"all 0.3s ease",background:navBg,backdropFilter:scrolled?"blur(16px)":"none",borderBottom:scrolled?"1px solid var(--border)":"1px solid transparent" }}>
         <div style={{ maxWidth:1200,margin:"0 auto",padding:"0 24px",height:68,display:"flex",alignItems:"center",justifyContent:"space-between" }}>
           <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-            <span style={{ width:10,height:10,background:"#1b4332",borderRadius:2 }}/>
+            <span style={{ width:10,height:10,background:"#00b894",borderRadius:2 }}/>
             <span style={{ fontSize:18,fontWeight:900,letterSpacing:"-0.5px" }}>BlogMaster AI</span>
           </div>
           <nav style={{ display:"flex",alignItems:"center",gap:32 }} className="desktop-nav">
@@ -436,7 +436,7 @@ export default function HomePage() {
             ))}
           </nav>
           <div style={{ display:"flex",gap:10,alignItems:"center" }}>
-            <Link href="/login" style={{ textDecoration:"none",background:"#1b4332",color:"#fff",fontSize:14,fontWeight:800,padding:"10px 22px",borderRadius:10 }}>로그인</Link>
+            <Link href="/login" style={{ textDecoration:"none",background:"#00b894",color:"#fff",fontSize:14,fontWeight:800,padding:"10px 22px",borderRadius:10 }}>로그인</Link>
             <button onClick={toggleTheme} title={isDark?'라이트 모드로 전환':'다크 모드로 전환'} style={{ background:'transparent',border:'1px solid var(--border)',borderRadius:10,padding:'9px 13px',cursor:'pointer',fontSize:16,color:'var(--text-secondary)' }}>{isDark?'☀️':'🌙'}</button>
           </div>
         </div>
@@ -444,12 +444,12 @@ export default function HomePage() {
 
       {/* ═══ HERO ═══ */}
       <section id="home" style={{ background:"#0c0a09",color:"#f2f0ef",paddingTop:68,position:"relative",overflow:"hidden" }}>
-        <div style={{ position:"absolute",inset:0,background:"radial-gradient(ellipse 800px 600px at 75% 30%, rgba(27,67,50,0.3), transparent 60%), radial-gradient(ellipse 600px 400px at 15% 80%, rgba(16,185,129,0.12), transparent 60%)",pointerEvents:"none" }}/>
+        <div style={{ position:"absolute",inset:0,background:"radial-gradient(ellipse 800px 600px at 75% 30%, rgba(0,184,148,0.3), transparent 60%), radial-gradient(ellipse 600px 400px at 15% 80%, rgba(16,185,129,0.12), transparent 60%)",pointerEvents:"none" }}/>
         <div style={{ position:"absolute",inset:0,opacity:0.04,backgroundImage:"linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",backgroundSize:"60px 60px",pointerEvents:"none" }}/>
 
         <div style={{ maxWidth:1320,margin:"0 auto",padding:"80px 24px 0",display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,560px)",gap:48,alignItems:"center",position:"relative" }} className="hero-grid">
           <div>
-            <div style={{ display:"inline-flex",alignItems:"center",gap:10,padding:"8px 18px",background:"rgba(27,67,50,0.4)",border:"1px solid rgba(45,106,79,0.5)",backdropFilter:"blur(8px)",color:"#d8f3dc",fontSize:13,fontWeight:700,letterSpacing:0.5,marginBottom:32,borderRadius:100 }}>
+            <div style={{ display:"inline-flex",alignItems:"center",gap:10,padding:"8px 18px",background:"rgba(0,184,148,0.4)",border:"1px solid rgba(45,106,79,0.5)",backdropFilter:"blur(8px)",color:"#d8f3dc",fontSize:13,fontWeight:700,letterSpacing:0.5,marginBottom:32,borderRadius:100 }}>
               <span style={{ width:8,height:8,borderRadius:"50%",background:"#10b981",animation:"pulse 2s ease-in-out infinite" }}/> 네이버 블로그 자동화 플랫폼
             </div>
             <h1 style={{ fontSize:"clamp(36px,5vw,64px)",fontWeight:900,lineHeight:1.1,letterSpacing:"-2px",marginBottom:24 }}>
@@ -462,7 +462,7 @@ export default function HomePage() {
               하루 3~4시간 걸리던 블로그 운영을 <strong style={{ color:"#10b981" }}>3분</strong>으로 단축합니다.
             </p>
             <div style={{ display:"flex",gap:12,flexWrap:"wrap",marginBottom:56 }}>
-              <Link href="/signup" className="hero-cta-primary" style={{ textDecoration:"none",background:"linear-gradient(135deg, #1b4332, #2d6a4f)",color:"#fff",fontSize:16,fontWeight:800,padding:"16px 36px",borderRadius:14,boxShadow:"0 4px 24px rgba(27,67,50,0.4)",transition:"transform 0.2s, box-shadow 0.2s" }}>무료체험하기 →</Link>
+              <Link href="/signup" className="hero-cta-primary" style={{ textDecoration:"none",background:"linear-gradient(135deg, #00b894, #0090ff)",color:"#fff",fontSize:16,fontWeight:800,padding:"16px 36px",borderRadius:14,boxShadow:"0 4px 24px rgba(0,184,148,0.4)",transition:"transform 0.2s, box-shadow 0.2s" }}>무료체험하기 →</Link>
               <button onClick={()=>scrollTo("process")} style={{ background:"transparent",border:"1px solid rgba(255,255,255,0.2)",color:"#d6d3d1",fontSize:16,fontWeight:700,padding:"16px 32px",borderRadius:14,cursor:"pointer",transition:"all 0.2s" }}>작동 방식 보기</button>
             </div>
             <div style={{ display:"flex",gap:48,flexWrap:"wrap" }}>
@@ -511,7 +511,7 @@ export default function HomePage() {
           </div>
 
           {/* 소요 시간 비교 하이라이트 바 */}
-          <div style={{ background:"linear-gradient(135deg, rgba(27,67,50,0.08), rgba(16,185,129,0.12))",border:"1.5px solid rgba(27,67,50,0.25)",borderRadius:20,padding:"24px 32px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:16 }}>
+          <div style={{ background:"linear-gradient(135deg, rgba(0,184,148,0.08), rgba(16,185,129,0.12))",border:"1.5px solid rgba(0,184,148,0.25)",borderRadius:20,padding:"24px 32px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:16 }}>
             <div style={{ textAlign:"left" }}>
               <div style={{ fontSize:13,fontWeight:700,color:"var(--text-secondary)",marginBottom:4 }}>기존 수동 작업 소요 시간</div>
               <div style={{ fontSize:22,fontWeight:900,color:"#ef4444",textDecoration:"line-through" }}>총 200분 (3시간 20분)</div>
@@ -538,14 +538,14 @@ export default function HomePage() {
               <thead><tr>
                 <th style={{ padding:"18px 20px",textAlign:"left",background:"var(--bg-secondary)",borderBottom:"1px solid var(--border)",fontSize:13,fontWeight:800,color:"var(--text-muted)",width:"30%" }}>항목</th>
                 <th style={{ padding:"18px 20px",textAlign:"center",background:"var(--bg-secondary)",borderBottom:"1px solid var(--border)",fontSize:13,fontWeight:800,color:"var(--text-muted)",width:"35%" }}>직접 발행 ✍️</th>
-                <th style={{ padding:"18px 20px",textAlign:"center",background:"rgba(27,67,50,0.08)",borderBottom:"1px solid var(--border)",fontSize:13,fontWeight:800,color:"#1b4332",width:"35%" }}>BlogMaster AI 🚀</th>
+                <th style={{ padding:"18px 20px",textAlign:"center",background:"rgba(0,184,148,0.08)",borderBottom:"1px solid var(--border)",fontSize:13,fontWeight:800,color:"#00b894",width:"35%" }}>BlogMaster AI 🚀</th>
               </tr></thead>
               <tbody>
                 {[["원고 작성","1~2시간 직접 작성","3분 AI 자동 생성"],["SEO 최적화","키워드 분석 별도 학습","자동 키워드 분석·배치"],["이미지 제작","포토샵·캔바로 편집","AI 자동 생성 + 썸네일 합성"],["블로그 발행","수동 복사-붙여넣기","크롬 확장 프로그램 자동 발행"],["순위 추적","매번 직접 검색해서 확인","자동 추적 + 대시보드 기록"],["하루 소요 시간","3~4시간","3분"]].map(([item,manual,ai],i)=>(
                   <tr key={i} style={{ borderBottom:i<5?"1px solid var(--border)":"none" }}>
                     <td style={{ padding:"16px 20px",fontWeight:700,color:"var(--text-primary)" }}>{item}</td>
                     <td style={{ padding:"16px 20px",textAlign:"center",color:"var(--text-secondary)" }}>{manual}</td>
-                    <td style={{ padding:"16px 20px",textAlign:"center",fontWeight:700,color:"#1b4332",background:"rgba(27,67,50,0.03)" }}>✅ {ai}</td>
+                    <td style={{ padding:"16px 20px",textAlign:"center",fontWeight:700,color:"#00b894",background:"rgba(0,184,148,0.03)" }}>✅ {ai}</td>
                   </tr>
                 ))}
               </tbody>
@@ -566,14 +566,14 @@ export default function HomePage() {
               <thead><tr>
                 <th style={{ padding:"18px 20px",textAlign:"left",background:"var(--bg-secondary)",borderBottom:"1px solid var(--border)",fontSize:13,fontWeight:800,color:"var(--text-muted)",width:"28%" }}>항목</th>
                 <th style={{ padding:"18px 20px",textAlign:"center",background:"var(--bg-secondary)",borderBottom:"1px solid var(--border)",fontSize:13,fontWeight:800,color:"var(--text-muted)",width:"36%" }}>기존 자동화 프로그램</th>
-                <th style={{ padding:"18px 20px",textAlign:"center",background:"rgba(27,67,50,0.08)",borderBottom:"1px solid var(--border)",fontSize:13,fontWeight:800,color:"#1b4332",width:"36%" }}>BlogMaster AI</th>
+                <th style={{ padding:"18px 20px",textAlign:"center",background:"rgba(0,184,148,0.08)",borderBottom:"1px solid var(--border)",fontSize:13,fontWeight:800,color:"#00b894",width:"36%" }}>BlogMaster AI</th>
               </tr></thead>
               <tbody>
                 {[["발행 방식","API 우회 · 봇 탐지 위험","크롬 확장 프로그램 (실제 사용자 행동)"],["원고 품질","템플릿 반복 · 저품질","고품질 SEO 맞춤 원고"],["이미지","직접 업로드 필요","AI 자동 생성 + 텍스트 합성"],["계정 안전성","캡차·차단 리스크 높음","내 PC 브라우저 사용, 차단 없음"],["커스터마이징","제한적 템플릿만 지원","계정별 말투·프롬프트·푸터 개별 설정"],["순위 추적","미지원 또는 별도 구매","기본 제공 · 자동 일별 기록"]].map(([item,old,ours],i)=>(
                   <tr key={i} style={{ borderBottom:i<5?"1px solid var(--border)":"none" }}>
                     <td style={{ padding:"16px 20px",fontWeight:700,color:"var(--text-primary)" }}>{item}</td>
                     <td style={{ padding:"16px 20px",textAlign:"center",color:"var(--text-muted)" }}>⚠️ {old}</td>
-                    <td style={{ padding:"16px 20px",textAlign:"center",fontWeight:700,color:"#1b4332",background:"rgba(27,67,50,0.03)" }}>✅ {ours}</td>
+                    <td style={{ padding:"16px 20px",textAlign:"center",fontWeight:700,color:"#00b894",background:"rgba(0,184,148,0.03)" }}>✅ {ours}</td>
                   </tr>
                 ))}
               </tbody>
@@ -592,8 +592,8 @@ export default function HomePage() {
           </div>
           <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(320px, 1fr))",gap:20 }}>
             {[
-              { icon:"✍️",title:"AI 원고 자동 생성",desc:"SEO에 최적화된 블로그 원고를 작성합니다. 키워드 밀도, 문단 구조, 인용구 배치까지 자동으로.",points:["키워드 분석 → 원고 자동 작성","네이버 SEO 가이드라인 준수","말투·톤 커스터마이징"],gradient:"linear-gradient(135deg, #1b4332, #2d6a4f)" },
-              { icon:"🖼️",title:"이미지·썸네일 자동 생성",desc:"본문에 어울리는 AI 이미지를 생성하고 썸네일에 텍스트를 자동으로 합성합니다.",points:["AI 이미지 생성","Sharp 썸네일 텍스트 합성","4가지 썸네일 스타일 선택"],gradient:"linear-gradient(135deg, #2d6a4f, #40916c)" },
+              { icon:"✍️",title:"AI 원고 자동 생성",desc:"SEO에 최적화된 블로그 원고를 작성합니다. 키워드 밀도, 문단 구조, 인용구 배치까지 자동으로.",points:["키워드 분석 → 원고 자동 작성","네이버 SEO 가이드라인 준수","말투·톤 커스터마이징"],gradient:"linear-gradient(135deg, #00b894, #0090ff)" },
+              { icon:"🖼️",title:"이미지·썸네일 자동 생성",desc:"본문에 어울리는 AI 이미지를 생성하고 썸네일에 텍스트를 자동으로 합성합니다.",points:["AI 이미지 생성","Sharp 썸네일 텍스트 합성","4가지 썸네일 스타일 선택"],gradient:"linear-gradient(135deg, #0090ff, #40916c)" },
               { icon:"🚀",title:"네이버 블로그 자동 발행",desc:"Chrome 확장 프로그램이 스마트에디터를 직접 조작해 발행합니다. 인간의 타이핑 패턴(휴먼 타이핑)과 자연스러운 딜레이 기술을 적용하여 어뷰징 감지 및 저품질 리스크를 완벽하게 방지합니다.",points:["스마트에디터 자동 조작 & 휴먼 타이핑","어뷰징·저품질 차단 기술 적용","예약 발행 스케줄링 & 멀티 계정"],gradient:"linear-gradient(135deg, #40916c, #52b788)" },
               { icon:"📊",title:"SEO 순위 실시간 추적",desc:"발행된 포스팅이 네이버 검색에서 몇 위인지 자동으로 체크하고 변화를 기록합니다.",points:["상위 200위 내 자동 탐색","일별 순위 변화 기록","키워드별 직접 검색 분석"],gradient:"linear-gradient(135deg, #10b981, #059669)" },
               { icon:"🔑",title:"황금 키워드 분석",desc:"경쟁도 낮고 조회수 높은 키워드를 자동으로 발굴합니다.",points:["조회수·경쟁 자동 분석","연관 키워드 발굴","월간 검색량 기준 필터링"],gradient:"linear-gradient(135deg, #f59e0b, #d97706)" },
@@ -665,16 +665,16 @@ export default function HomePage() {
               </ul>
             </div>
             {/* Pro */}
-            <div className="pricing-card pricing-pro" style={{ padding:"40px 32px",borderRadius:24,background:"var(--bg-card)",border:"2px solid #1b4332",position:"relative",boxShadow:"0 8px 40px rgba(27,67,50,0.15)",transition:"transform 0.3s ease, box-shadow 0.3s ease" }}>
-              <div style={{ position:"absolute",top:-14,left:"50%",transform:"translateX(-50%)",background:"linear-gradient(135deg, #1b4332, #2d6a4f)",color:"#fff",padding:"6px 24px",borderRadius:100,fontSize:12,fontWeight:800,letterSpacing:1 }}>🔥 가장 인기</div>
-              <div style={{ fontSize:13,fontWeight:800,color:"#1b4332",letterSpacing:1,textTransform:"uppercase",marginBottom:8 }}>Pro</div>
+            <div className="pricing-card pricing-pro" style={{ padding:"40px 32px",borderRadius:24,background:"var(--bg-card)",border:"2px solid #00b894",position:"relative",boxShadow:"0 8px 40px rgba(0,184,148,0.15)",transition:"transform 0.3s ease, box-shadow 0.3s ease" }}>
+              <div style={{ position:"absolute",top:-14,left:"50%",transform:"translateX(-50%)",background:"linear-gradient(135deg, #00b894, #0090ff)",color:"#fff",padding:"6px 24px",borderRadius:100,fontSize:12,fontWeight:800,letterSpacing:1 }}>🔥 가장 인기</div>
+              <div style={{ fontSize:13,fontWeight:800,color:"#00b894",letterSpacing:1,textTransform:"uppercase",marginBottom:8 }}>Pro</div>
               <div style={{ fontSize:14,color:"var(--text-secondary)",marginBottom:24 }}>본격적인 블로그 마케팅을 위한 프로 사용자</div>
               <div style={{ display:"flex",alignItems:"baseline",gap:4,marginBottom:32 }}>
                 <span style={{ fontSize:42,fontWeight:900,color:"var(--text-primary)" }}>₩45,000</span>
                 <span style={{ fontSize:13,color:"var(--text-muted)" }}>/월</span>
                 <span style={{ fontSize:11,color:"var(--text-muted)",marginLeft:4 }}>(VAT 별도)</span>
               </div>
-              <Link href="/login?redirect=%2Fdashboard%2Fsettings%3Fplan%3Dpro" style={{ display:"block",textAlign:"center",textDecoration:"none",padding:"14px 0",borderRadius:12,background:"linear-gradient(135deg, #1b4332, #2d6a4f)",color:"#fff",fontWeight:800,fontSize:15,marginBottom:32,boxShadow:"0 4px 16px rgba(27,67,50,0.3)",transition:"all 0.2s ease" }}>Pro로 시작하기</Link>
+              <Link href="/login?redirect=%2Fdashboard%2Fsettings%3Fplan%3Dpro" style={{ display:"block",textAlign:"center",textDecoration:"none",padding:"14px 0",borderRadius:12,background:"linear-gradient(135deg, #00b894, #0090ff)",color:"#fff",fontWeight:800,fontSize:15,marginBottom:32,boxShadow:"0 4px 16px rgba(0,184,148,0.3)",transition:"all 0.2s ease" }}>Pro로 시작하기</Link>
               <ul style={{ listStyle:"none",display:"flex",flexDirection:"column",gap:14 }}>
                 {[["네이버 아이디 3개",true],["아이디당 커스텀 프롬프트 3개",true],["원고 생성 무제한",false],["자동 발행 무제한",false],["SEO 순위 추적",false],["황금 키워드 분석",false],["멀티 계정 동시 운영",true]].map(([f,hl],i)=>(
                   <li key={i} style={{ display:"flex",alignItems:"center",gap:10,fontSize:14,color:hl?"var(--text-primary)":"var(--text-secondary)",fontWeight:hl?700:400 }}><span style={{ color:"#10b981",fontWeight:900 }}>✓</span> {f}</li>
@@ -701,7 +701,7 @@ export default function HomePage() {
 
       {/* ═══ COMING SOON ═══ */}
       <section style={{ padding:"60px 24px" }}>
-        <div style={{ maxWidth:960,margin:"0 auto",background:"linear-gradient(135deg, #0c0a09 0%, #1b4332 100%)",borderRadius:24,padding:"48px 40px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:32,flexWrap:"wrap",position:"relative",overflow:"hidden" }}>
+        <div style={{ maxWidth:960,margin:"0 auto",background:"linear-gradient(135deg, #0c0a09 0%, #00b894 100%)",borderRadius:24,padding:"48px 40px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:32,flexWrap:"wrap",position:"relative",overflow:"hidden" }}>
           <div style={{ position:"absolute",top:-60,right:-60,width:200,height:200,borderRadius:"50%",background:"rgba(16,185,129,0.15)",filter:"blur(60px)",pointerEvents:"none" }}/>
           <div style={{ position:"relative",zIndex:1 }}>
             <div style={{ display:"inline-flex",alignItems:"center",gap:8,padding:"6px 16px",background:"rgba(16,185,129,0.15)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:100,marginBottom:16 }}>
@@ -725,10 +725,10 @@ export default function HomePage() {
       <section style={{ padding:"100px 24px",background:"var(--bg-primary)" }}>
         <div style={{ maxWidth:680,margin:"0 auto",textAlign:"center" }}>
           <h2 style={{ fontSize:"clamp(26px,3.8vw,48px)",fontWeight:900,letterSpacing:"-1.5px",lineHeight:1.15,marginBottom:20 }}>
-            블로그 운영, 이제<br/><span style={{ background:"linear-gradient(135deg, #1b4332, #10b981)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>AI에게 맡기세요</span>
+            블로그 운영, 이제<br/><span style={{ background:"linear-gradient(135deg, #00b894, #10b981)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>AI에게 맡기세요</span>
           </h2>
           <p style={{ fontSize:16,color:"var(--text-secondary)",lineHeight:1.8,marginBottom:44 }}>반복적인 원고 작성, 이미지 제작, 발행 작업에서 벗어나<br/>전략과 기획에만 집중할 수 있습니다.</p>
-          <Link href="/signup" style={{ textDecoration:"none",background:"linear-gradient(135deg, #1b4332, #2d6a4f)",color:"#fff",fontSize:17,fontWeight:800,padding:"18px 48px",borderRadius:14,display:"inline-block",boxShadow:"0 4px 24px rgba(27,67,50,0.3)",transition:"transform 0.2s, box-shadow 0.2s" }}>무료체험하기 →</Link>
+          <Link href="/signup" style={{ textDecoration:"none",background:"linear-gradient(135deg, #00b894, #0090ff)",color:"#fff",fontSize:17,fontWeight:800,padding:"18px 48px",borderRadius:14,display:"inline-block",boxShadow:"0 4px 24px rgba(0,184,148,0.3)",transition:"transform 0.2s, box-shadow 0.2s" }}>무료체험하기 →</Link>
         </div>
       </section>
 
@@ -738,7 +738,7 @@ export default function HomePage() {
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:40,marginBottom:48,paddingBottom:48,borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
             <div>
               <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:12 }}>
-                <span style={{ width:10,height:10,background:"#1b4332",borderRadius:2 }}/>
+                <span style={{ width:10,height:10,background:"#00b894",borderRadius:2 }}/>
                 <span style={{ fontSize:18,fontWeight:900,color:"#fff",letterSpacing:"-0.5px" }}>BlogMaster AI</span>
               </div>
               <div style={{ fontSize:13,color:"#78716c",lineHeight:1.7 }}>AI 기반 네이버 블로그 자동화 플랫폼<br/>주제만 입력하면 원고 생성부터 발행까지</div>
@@ -789,7 +789,7 @@ export default function HomePage() {
         @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
         .feature-card:hover { transform:translateY(-4px)!important; box-shadow:0 12px 40px rgba(0,0,0,0.1)!important; }
         .pricing-card:hover { transform:translateY(-4px)!important; box-shadow:0 12px 40px rgba(0,0,0,0.1)!important; }
-        .pricing-pro:hover { transform:translateY(-6px)!important; box-shadow:0 16px 48px rgba(27,67,50,0.2)!important; }
+        .pricing-pro:hover { transform:translateY(-6px)!important; box-shadow:0 16px 48px rgba(0,184,148,0.2)!important; }
         .pain-card:hover { transform:translateY(-3px)!important; box-shadow:0 8px 24px rgba(0,0,0,0.06)!important; }
         @media (min-width:769px) { .process-demo-sticky { position:sticky; top:100px; } }
         @media (max-width:768px) {

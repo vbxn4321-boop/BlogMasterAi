@@ -85,7 +85,7 @@ function renderInlineText(text, keyPrefix) {
     return parts.map((part, i) => {
         const m = part.match(/^\[B\]([\s\S]*?)\[\/B\]$/i);
         if (m) {
-            return <strong key={`${keyPrefix}-b-${i}`} style={{ color: 'var(--text-primary)', fontWeight: 800 }}>{m[1]}</strong>;
+            return <strong key={`${keyPrefix}-b-${i}`} style={{ color: '#0f172a', fontWeight: 800 }}>{m[1]}</strong>;
         }
         return part || null;
     });
@@ -94,85 +94,94 @@ function renderInlineText(text, keyPrefix) {
 function renderQuoteBlock(styleKey, text, key) {
     const styleInfo = QUOTE_STYLES.find(s => s.key === styleKey);
     const label = styleInfo?.label || styleKey;
-    const baseBox = { margin: '20px 0', position: 'relative' };
+    const baseBox = { margin: '24px 0', position: 'relative' };
 
     switch (styleKey) {
         case 'QUOTE_VERTICAL':
             return (
-                <div key={key} style={{ ...baseBox, padding: '4px 0 4px 18px', borderLeft: '4px solid var(--accent)' }}>
-                    <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>{text}</span>
+                <div key={key} style={{ ...baseBox, padding: '4px 0 4px 18px', borderLeft: '4px solid #00b894' }}>
+                    <span style={{ fontSize: 17, fontWeight: 700, color: '#0f172a' }}>{text}</span>
                 </div>
             );
         case 'QUOTE_DEFAULT':
             return (
-                <div key={key} style={{ ...baseBox, textAlign: 'center', padding: '10px 24px' }}>
-                    <span style={{ fontSize: 26, color: 'var(--accent)', marginRight: 6, verticalAlign: '-4px' }}>❝</span>
-                    <span style={{ fontSize: 17, fontWeight: 700, fontStyle: 'italic', color: 'var(--text-primary)' }}>{text}</span>
+                <div key={key} style={{ ...baseBox, textAlign: 'center', padding: '12px 24px' }}>
+                    <span style={{ fontSize: 26, color: '#00b894', marginRight: 6, verticalAlign: '-4px' }}>❝</span>
+                    <span style={{ fontSize: 17, fontWeight: 700, fontStyle: 'italic', color: '#0f172a' }}>{text}</span>
                 </div>
             );
         case 'QUOTE_POSTIT':
             return (
                 <div key={key} style={{
                     ...baseBox, display: 'inline-block', padding: '14px 20px', borderRadius: 4,
-                    background: 'rgba(250, 204, 21, 0.14)', border: '1px solid rgba(250, 204, 21, 0.35)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)', transform: 'rotate(-0.6deg)'
+                    background: '#fffbeb', border: '1px solid #fde68a',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)', transform: 'rotate(-0.6deg)'
                 }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{text}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: '#1e293b' }}>{text}</span>
                 </div>
             );
         case 'QUOTE_BALLOON':
             return (
                 <div key={key} style={{
                     ...baseBox, display: 'inline-block', padding: '12px 22px', borderRadius: 22,
-                    background: 'rgba(27,67,50,0.12)', border: '1.5px solid var(--accent)'
+                    background: '#f5f3ff', border: '1.5px solid #00b894'
                 }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>💬 {text}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>{text}</span>
                 </div>
             );
         case 'QUOTE_LINE_QUOTATION':
             return (
-                <div key={key} style={{ ...baseBox, padding: '4px 4px 10px', borderBottom: '2px solid var(--border)' }}>
-                    <span style={{ fontSize: 15, color: 'var(--text-muted)', marginRight: 6 }}>—</span>
-                    <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>{text}</span>
+                <div key={key} style={{ ...baseBox, padding: '4px 4px 10px', borderBottom: '2px solid #e2e8f0' }}>
+                    <span style={{ fontSize: 15, color: '#94a3b8', marginRight: 6 }}>—</span>
+                    <span style={{ fontSize: 17, fontWeight: 700, color: '#0f172a' }}>{text}</span>
                 </div>
             );
         case 'QUOTE_FRAME':
             return (
                 <div key={key} style={{
-                    ...baseBox, padding: '14px 20px', borderRadius: 10,
-                    border: '1.5px solid var(--border)', background: 'rgba(255,255,255,0.02)'
+                    ...baseBox, padding: '16px 20px', borderRadius: 10,
+                    border: '1.5px solid #cbd5e1', background: '#f8fafc'
                 }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{text}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>{text}</span>
                 </div>
             );
         default:
             return (
                 <div key={key} style={baseBox}>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>[{label}]</span> {text}
+                    <span style={{ fontSize: 11, color: '#64748b' }}>[{label}]</span> {text}
                 </div>
             );
     }
 }
 
-function renderPlaceholderBlock(key, icon, label) {
+function renderPlaceholderBlock(key, label) {
     return (
         <div key={key} style={{
-            margin: '16px 0', padding: '14px 18px', borderRadius: 10,
-            border: '1px dashed var(--border)', background: 'rgba(255,255,255,0.02)',
-            fontSize: 12, color: 'var(--text-muted)', textAlign: 'center'
+            margin: '20px 0', padding: '14px 18px', borderRadius: 10,
+            border: '1px dashed #cbd5e1', background: '#f8fafc',
+            fontSize: 13, color: '#64748b', textAlign: 'center'
         }}>
-            {icon} {label}
+            [ {label} ]
         </div>
     );
 }
 
-function renderPreviewBody(body) {
+function renderPreviewBody(body, selectedAccount, formPublishOptions) {
     if (!body) return null;
     const regex = new RegExp(BLOCK_TAG_REGEX.source, 'gi');
     const nodes = [];
     let lastIndex = 0;
     let key = 0;
     let match;
+
+    const mapName = selectedAccount?.biz_map_place_name || formPublishOptions?.map_address;
+    const mapAddress = selectedAccount?.biz_map_address || formPublishOptions?.map_address;
+    const ctaTitle = selectedAccount?.biz_cta_title;
+    const ctaSubtitle = selectedAccount?.biz_cta_subtitle;
+    const ctaImageUrl = selectedAccount?.biz_cta_image_url;
+    const ctaTel = selectedAccount?.biz_tel;
+    const footerText = selectedAccount?.biz_footer_text || "궁금하신 점이 있으시면 언제든지 편하게 문의해 주세요.";
+
     while ((match = regex.exec(body)) !== null) {
         if (match.index > lastIndex) {
             const plain = body.slice(lastIndex, match.index);
@@ -182,11 +191,55 @@ function renderPreviewBody(body) {
         if (quoteStyle) {
             nodes.push(renderQuoteBlock(quoteStyle.toUpperCase(), quoteText.trim(), `q-${key++}`));
         } else if (anchorNum) {
-            nodes.push(renderPlaceholderBlock(`img-${key++}`, '🖼️', `이미지 ${anchorNum} 삽입 위치`));
+            nodes.push(renderPlaceholderBlock(`img-${key++}`, `이미지 ${anchorNum} 삽입 위치`));
         } else if (/BUSINESS_MAP_BLOCK/i.test(full)) {
-            nodes.push(renderPlaceholderBlock(`map-${key++}`, '📍', '업체 지도 영역'));
+            nodes.push(
+                <div key={`map-${key++}`} style={{
+                    margin: '24px 0', padding: '18px 20px', borderRadius: 12,
+                    border: '1.5px dashed #00b894', background: '#f8f5ff',
+                    color: '#1e293b'
+                }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#00b894', marginBottom: 8, letterSpacing: '0.5px' }}>
+                        [ 푸터 영역 · 장소(지도) ]
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
+                        📍 {mapName || mapAddress || '등록된 사업장 장소'}
+                    </div>
+                    {mapAddress && mapAddress !== mapName && (
+                        <div style={{ fontSize: 13, color: '#475569' }}>
+                            {mapAddress}
+                        </div>
+                    )}
+                </div>
+            );
         } else if (/BUSINESS_CTA_BANNER/i.test(full)) {
-            nodes.push(renderPlaceholderBlock(`cta-${key++}`, '🔗', 'CTA 배너 영역'));
+            nodes.push(
+                <div key={`cta-${key++}`} style={{
+                    margin: '24px 0', padding: '20px', borderRadius: 12,
+                    border: '1.5px dashed #00b894', background: '#f8f5ff',
+                    color: '#1e293b', textAlign: 'center'
+                }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#00b894', marginBottom: 10, letterSpacing: '0.5px' }}>
+                        [ 푸터 영역 · CTA 상담 배너 ]
+                    </div>
+                    {ctaImageUrl && (
+                        <img src={ctaImageUrl} alt="CTA 배너" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 8, margin: '0 auto 12px', display: 'block', objectFit: 'cover' }} />
+                    )}
+                    <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>
+                        {ctaTitle || '상담 및 문의하기'}
+                    </div>
+                    {ctaSubtitle && (
+                        <div style={{ fontSize: 13, color: '#475569', marginBottom: 6 }}>
+                            {ctaSubtitle}
+                        </div>
+                    )}
+                    {ctaTel && (
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#00b894', marginTop: 4 }}>
+                            TEL: {ctaTel}
+                        </div>
+                    )}
+                </div>
+            );
         }
         lastIndex = match.index + full.length;
     }
@@ -269,7 +322,7 @@ function QuoteStyleModal({ body, onClose, onApply }) {
                                     onClick={() => handleSelectHeading(i)}
                                     style={{
                                         padding: '12px 14px', borderRadius: 10, marginBottom: 8, cursor: 'pointer',
-                                        background: isSelected ? 'rgba(27,67,50,0.12)' : 'rgba(0,0,0,0.15)',
+                                        background: isSelected ? 'rgba(0,184,148,0.12)' : 'rgba(0,0,0,0.15)',
                                         border: `1.5px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
                                         transition: 'all 0.15s',
                                     }}
@@ -281,7 +334,7 @@ function QuoteStyleModal({ body, onClose, onApply }) {
                                         <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>현재:</span>
                                         <span style={{
                                             fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 100,
-                                            background: 'rgba(27,67,50,0.15)', color: 'var(--accent)',
+                                            background: 'rgba(0,184,148,0.15)', color: 'var(--accent)',
                                         }}>
                                             {styleInfo?.icon} {styleInfo?.label || h.style}
                                         </span>
@@ -307,7 +360,7 @@ function QuoteStyleModal({ body, onClose, onApply }) {
                                         style={{
                                             padding: '14px 16px', borderRadius: 10, cursor: selectedIdx !== null ? 'pointer' : 'not-allowed',
                                             opacity: selectedIdx === null ? 0.35 : 1,
-                                            background: isActive ? 'rgba(27,67,50,0.12)' : 'rgba(0,0,0,0.15)',
+                                            background: isActive ? 'rgba(0,184,148,0.12)' : 'rgba(0,0,0,0.15)',
                                             border: `1.5px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
                                             transition: 'all 0.15s',
                                             display: 'flex', alignItems: 'center', gap: 14,
@@ -339,7 +392,7 @@ function QuoteStyleModal({ body, onClose, onApply }) {
                         disabled={!canApply}
                         style={{
                             fontSize: 13, fontWeight: 700, padding: '9px 24px', borderRadius: 10, border: 'none',
-                            background: canApply ? 'var(--accent)' : 'rgba(27,67,50,0.3)',
+                            background: canApply ? 'var(--accent)' : 'rgba(0,184,148,0.3)',
                             color: canApply ? '#fff' : 'rgba(255,255,255,0.35)',
                             cursor: canApply ? 'pointer' : 'not-allowed', transition: 'background 0.15s',
                         }}
@@ -371,6 +424,23 @@ const TOPIC_GROUPS = [
         topics: ["IT·컴퓨터", "사회·정치", "건강·의학", "비즈니스·경제", "어학·외국어", "교육·학문"]
     }
 ];
+
+// 추천 키워드 클릭이나 대시보드 키워드 대화창의 "포스팅 시작" 확정 시 붙는 쿼리 파라미터를
+// 읽어 폼 프리필 값으로 변환한다. main_keyword/sub_keywords가 없으면(기존 추천 키워드 링크)
+// topic을 main_keyword로도 채워 기존 동작을 그대로 유지한다.
+function readQuickPrefillFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const topic = params.get('topic');
+    const mainKeyword = params.get('main_keyword');
+    const subKeywords = params.get('sub_keywords');
+    if (!topic && !mainKeyword) return null;
+
+    const prefill = {};
+    if (topic) prefill.topic = topic;
+    prefill.main_keyword = mainKeyword || topic;
+    if (subKeywords) prefill.sub_keywords = subKeywords;
+    return prefill;
+}
 
 function NewPostContent() {
     const { isSubscribed, freeTrialCount, loading: subLoading } = useSubscription();
@@ -447,7 +517,7 @@ function NewPostContent() {
     const [thumbnailSubText, setThumbnailSubText] = useState('');
     const [thumbnailStyle, setThumbnailStyle] = useState('center_text');
     const [thumbnailBgType, setThumbnailBgType] = useState('image');
-    const [thumbnailBgColor, setThumbnailBgColor] = useState('#8B5CF6');
+    const [thumbnailBgColor, setThumbnailBgColor] = useState('#00d9a3');
     const [thumbnailBlackOverlay, setThumbnailBlackOverlay] = useState(30);
     const [thumbnailFont, setThumbnailFont] = useState('bold_gothic');
     const [imageSource, setImageSource] = useState('gemini');
@@ -467,7 +537,9 @@ function NewPostContent() {
         if (subLoading) return; // 구독 여부가 확정된 뒤 한 번만 로드 (비구독자용 예시 계정 깜빡임 방지)
         const loadAccounts = async () => {
             const { data: { user } } = await supabase.auth.getUser();
-            const { data: fetched } = await supabase.from('naver_accounts').select('id, naver_id, concept, custom_content_prompt').eq('user_id', user?.id);
+            const { data: fetched } = await supabase.from('naver_accounts')
+                .select('id, naver_id, concept, custom_content_prompt, biz_map_place_name, biz_map_address, biz_cta_title, biz_cta_subtitle, biz_cta_image_url, biz_footer_text, biz_tel')
+                .eq('user_id', user?.id);
             const data = fetched || [];
             setAccounts(data);
 
@@ -486,10 +558,11 @@ function NewPostContent() {
                         }));
                         if (draft.previews?.length > 0) setPreviews(draft.previews);
                         if (typeof draft.activePreviewIdx === 'number') setActivePreviewIdx(draft.activePreviewIdx);
-                        // URL ?topic= 파라미터가 있으면 드래프트보다 우선 적용 (추천 키워드 클릭 시
-                        // 주제뿐 아니라 핵심 키워드 심화설정에도 동일한 키워드를 채워 SEO 타겟을 고정한다)
-                        const quickTopic = new URLSearchParams(window.location.search).get('topic');
-                        if (quickTopic) setForm(f => ({ ...f, topic: quickTopic, main_keyword: quickTopic }));
+                        // URL ?topic=/main_keyword=/sub_keywords= 파라미터가 있으면 드래프트보다 우선 적용
+                        // (추천 키워드 클릭이나 대시보드 키워드 대화창에서 확정한 경우 — 주제뿐 아니라
+                        // 핵심/서브 키워드 심화설정에도 채워 SEO 타겟을 고정한다)
+                        const quickPrefill = readQuickPrefillFromUrl();
+                        if (quickPrefill) setForm(f => ({ ...f, ...quickPrefill }));
                         isDraftLoaded.current = true;
                         return;
                     }
@@ -499,10 +572,10 @@ function NewPostContent() {
             // 초안 없음: 기본 계정만 설정
             if (data?.length > 0) setForm(f => ({ ...f, naver_account_id: data[0].id }));
 
-            // URL ?topic= 파라미터로 키워드 자동 입력 (추천 키워드 클릭 시)
-            // 주제뿐 아니라 핵심 키워드 심화설정에도 동일한 키워드를 채워 SEO 타겟을 고정한다
-            const quickTopic = new URLSearchParams(window.location.search).get('topic');
-            if (quickTopic) setForm(f => ({ ...f, topic: quickTopic, main_keyword: quickTopic }));
+            // URL ?topic=/main_keyword=/sub_keywords= 파라미터로 자동 입력
+            // (추천 키워드 클릭 또는 대시보드 키워드 대화창에서 확정한 경우)
+            const quickPrefill = readQuickPrefillFromUrl();
+            if (quickPrefill) setForm(f => ({ ...f, ...quickPrefill }));
 
             isDraftLoaded.current = true;
         };
@@ -1425,7 +1498,7 @@ function NewPostContent() {
                                         marginLeft: 6,
                                         padding: '3px 10px',
                                         borderRadius: 12,
-                                        background: 'linear-gradient(135deg, #1b4332, #2d6a4f)',
+                                        background: 'linear-gradient(135deg, #00b894, #0090ff)',
                                         color: '#fff',
                                         border: 'none',
                                         fontSize: 11,
@@ -1497,7 +1570,7 @@ function NewPostContent() {
                                                     style={{
                                                         padding: '10px 6px', borderRadius: 10, border: '1px solid',
                                                         borderColor: form.seo_category === cat.value ? 'var(--accent)' : 'var(--border)',
-                                                        background: form.seo_category === cat.value ? 'rgba(27,67,50,0.15)' : 'var(--bg-secondary)',
+                                                        background: form.seo_category === cat.value ? 'rgba(0,184,148,0.15)' : 'var(--bg-secondary)',
                                                         color: cat.disabled ? 'var(--text-muted)' : (form.seo_category === cat.value ? 'var(--accent)' : 'var(--text-secondary)'),
                                                         cursor: cat.disabled ? 'not-allowed' : 'pointer', textAlign: 'center', fontSize: 12, fontWeight: 600,
                                                         opacity: cat.disabled ? 0.5 : 1,
@@ -1517,9 +1590,9 @@ function NewPostContent() {
                                     const tonePreview = {
                                         '친근한 존댓말': {
                                             label: '친근한 존댓말',
-                                            color: '#1b4332',
-                                            bg: 'rgba(27,67,50,0.07)',
-                                            border: 'rgba(27,67,50,0.25)',
+                                            color: '#00b894',
+                                            bg: 'rgba(0,184,148,0.07)',
+                                            border: 'rgba(0,184,148,0.25)',
                                             lines: [
                                                 '오늘은 제가 직접 다녀온 곳을 소개해 드릴게요 😊',
                                                 '솔직히 처음엔 별 기대 안 했는데, 가보니까 진짜 너무 좋더라고요.',
@@ -1577,9 +1650,9 @@ function NewPostContent() {
                                         const customText = selectedAccount?.custom_content_prompt?.trim();
                                         preview = customText ? {
                                             label: '나의 프롬프트',
-                                            color: '#8b5cf6',
-                                            bg: 'rgba(139,92,246,0.07)',
-                                            border: 'rgba(139,92,246,0.25)',
+                                            color: '#00d9a3',
+                                            bg: 'rgba(0,217,163,0.07)',
+                                            border: 'rgba(0,217,163,0.25)',
                                             lines: [customText],
                                         } : null;
                                     }
@@ -1631,7 +1704,7 @@ function NewPostContent() {
                                             style={{
                                                 padding: '12px 8px', borderRadius: 12, border: '1px solid',
                                                 borderColor: form.trigger_type === opt.value ? 'var(--accent)' : 'var(--border)',
-                                                background: form.trigger_type === opt.value ? 'rgba(27,67,50,0.1)' : 'var(--bg-secondary)',
+                                                background: form.trigger_type === opt.value ? 'rgba(0,184,148,0.1)' : 'var(--bg-secondary)',
                                                 color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'center',
                                                 transition: 'all 0.2s ease',
                                                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6
@@ -1661,7 +1734,7 @@ function NewPostContent() {
                                             padding: '4px 14px', borderRadius: 20, fontSize: 11, fontWeight: 700,
                                             border: '1px solid',
                                             borderColor: thumbnailTextMode ? 'var(--accent)' : 'var(--border)',
-                                            background: thumbnailTextMode ? 'rgba(27,67,50,0.15)' : 'var(--bg-secondary)',
+                                            background: thumbnailTextMode ? 'rgba(0,184,148,0.15)' : 'var(--bg-secondary)',
                                             color: thumbnailTextMode ? 'var(--accent)' : 'var(--text-muted)',
                                             cursor: 'pointer', transition: 'all 0.2s'
                                         }}>
@@ -1670,7 +1743,7 @@ function NewPostContent() {
                                 </div>
 
                                 {thumbnailTextMode && (
-                                    <div style={{ marginBottom: 16, padding: '16px', background: 'rgba(27,67,50,0.05)', borderRadius: 12, border: '1px solid rgba(27,67,50,0.2)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    <div style={{ marginBottom: 16, padding: '16px', background: 'rgba(0,184,148,0.05)', borderRadius: 12, border: '1px solid rgba(0,184,148,0.2)', display: 'flex', flexDirection: 'column', gap: 10 }}>
                                         {/* 제목 입력 */}
                                         <div>
                                             <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6 }}>제목</div>
@@ -1708,7 +1781,7 @@ function NewPostContent() {
                                                             flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 700,
                                                             border: '1px solid',
                                                             borderColor: thumbnailBgType === opt.value ? 'var(--accent)' : 'var(--border)',
-                                                            background: thumbnailBgType === opt.value ? 'rgba(27,67,50,0.15)' : 'var(--bg-secondary)',
+                                                            background: thumbnailBgType === opt.value ? 'rgba(0,184,148,0.15)' : 'var(--bg-secondary)',
                                                             color: thumbnailBgType === opt.value ? 'var(--accent)' : 'var(--text-secondary)',
                                                             cursor: 'pointer', transition: 'all 0.2s'
                                                         }}>
@@ -1717,7 +1790,7 @@ function NewPostContent() {
                                                 ))}
                                             </div>
                                             {thumbnailBgType === 'color' && (() => {
-                                                const presetColors = ['#8B5CF6', '#EC4899', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#14B8A6'];
+                                                const presetColors = ['#00d9a3', '#EC4899', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#14B8A6'];
                                                 const isCustomColor = !presetColors.map(c => c.toLowerCase()).includes(thumbnailBgColor.toLowerCase());
                                                 return (
                                                     <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1768,7 +1841,7 @@ function NewPostContent() {
                                                             flex: 1, padding: '6px 0', borderRadius: 8, fontSize: 12, fontWeight: 700,
                                                             border: '1px solid',
                                                             borderColor: thumbnailBlackOverlay === val ? 'var(--accent)' : 'var(--border)',
-                                                            background: thumbnailBlackOverlay === val ? 'rgba(27,67,50,0.15)' : 'var(--bg-secondary)',
+                                                            background: thumbnailBlackOverlay === val ? 'rgba(0,184,148,0.15)' : 'var(--bg-secondary)',
                                                             color: thumbnailBlackOverlay === val ? 'var(--accent)' : 'var(--text-secondary)',
                                                             cursor: 'pointer', transition: 'all 0.2s'
                                                         }}>
@@ -1794,7 +1867,7 @@ function NewPostContent() {
                                                             padding: '8px', borderRadius: 8, fontSize: 12, fontWeight: 600,
                                                             border: '1px solid',
                                                             borderColor: thumbnailFont === font.value ? 'var(--accent)' : 'var(--border)',
-                                                            background: thumbnailFont === font.value ? 'rgba(27,67,50,0.15)' : 'var(--bg-secondary)',
+                                                            background: thumbnailFont === font.value ? 'rgba(0,184,148,0.15)' : 'var(--bg-secondary)',
                                                             color: thumbnailFont === font.value ? 'var(--accent)' : 'var(--text-secondary)',
                                                             cursor: 'pointer', transition: 'all 0.2s', textAlign: 'center'
                                                         }}>
@@ -1881,7 +1954,7 @@ function NewPostContent() {
                                                         style={{
                                                             background: 'none', border: thumbnailStyle === card.value ? '2px solid var(--accent)' : '2px solid var(--border)',
                                                             borderRadius: 10, padding: 6, cursor: 'pointer', textAlign: 'left',
-                                                            boxShadow: thumbnailStyle === card.value ? '0 0 0 2px rgba(27,67,50,0.2)' : 'none',
+                                                            boxShadow: thumbnailStyle === card.value ? '0 0 0 2px rgba(0,184,148,0.2)' : 'none',
                                                             transition: 'border 0.15s, box-shadow 0.15s'
                                                         }}>
                                                         {card.preview}
@@ -1905,7 +1978,7 @@ function NewPostContent() {
                                             style={{
                                                 padding: '12px 8px', borderRadius: 12, border: '1px solid',
                                                 borderColor: imageSource === opt.value ? 'var(--accent)' : 'var(--border)',
-                                                background: imageSource === opt.value ? 'rgba(27,67,50,0.1)' : 'var(--bg-secondary)',
+                                                background: imageSource === opt.value ? 'rgba(0,184,148,0.1)' : 'var(--bg-secondary)',
                                                 color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'center',
                                                 transition: 'all 0.2s ease',
                                                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6
@@ -1917,7 +1990,7 @@ function NewPostContent() {
                                     ))}
                                 </div>
                                 {imageSource === 'stock' && thumbnailTextMode && (
-                                    <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(27,67,50,0.07)', borderRadius: 8, border: '1px solid rgba(27,67,50,0.2)', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                                    <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(0,184,148,0.07)', borderRadius: 8, border: '1px solid rgba(0,184,148,0.2)', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                                         💡 썸네일 1번 이미지는 Gemini로 생성되고, 나머지는 무료 이미지로 가져옵니다.
                                     </div>
                                 )}
@@ -1945,7 +2018,7 @@ function NewPostContent() {
                                     <label style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8, display: 'block', fontWeight: 600 }}>
                                         주제가 되는 내용
                                     </label>
-                                    <div style={{ padding: '16px', background: 'rgba(27,67,50,0.05)', borderRadius: 12, border: '1px solid var(--accent)' }}>
+                                    <div style={{ padding: '16px', background: 'rgba(0,184,148,0.05)', borderRadius: 12, border: '1px solid var(--accent)' }}>
                                         <p style={{ fontSize: 13, color: 'var(--text-primary)', margin: 0 }}>
                                             💡 선택한 계정의 컨셉과 카테고리의 최신 트렌드를 분석하여 AI가 알아서 알맞은 주제를 선정하고 작성합니다.
                                         </p>
@@ -1972,7 +2045,7 @@ function NewPostContent() {
                                                     const acceptMap = { image: 'image/jpeg,image/png,image/webp', video: 'video/mp4,video/quicktime,video/x-msvideo', gif: 'image/gif' };
                                                     const labelMap = { image: '이미지', video: '동영상', gif: 'GIF' };
                                                     const limitMap = { image: '5MB', video: '50MB', gif: '10MB' };
-                                                    const typeColorMap = { image: '#1b4332', video: '#10b981', gif: '#f59e0b' };
+                                                    const typeColorMap = { image: '#00b894', video: '#10b981', gif: '#f59e0b' };
                                                     return (
                                                     <div key={idx} style={{ position: 'relative', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', background: 'rgba(255,255,255,0.02)' }}>
                                                         {/* 삭제 버튼 — 8개 초과 슬롯만 삭제 가능 */}
@@ -2149,7 +2222,7 @@ function NewPostContent() {
                                                                         disabled={!newPresetContent.trim()}
                                                                         style={{
                                                                             flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                                                                            border: '1px solid var(--accent)', background: 'rgba(27,67,50,0.1)', color: 'var(--accent)',
+                                                                            border: '1px solid var(--accent)', background: 'rgba(0,184,148,0.1)', color: 'var(--accent)',
                                                                             cursor: newPresetContent.trim() ? 'pointer' : 'not-allowed',
                                                                             opacity: newPresetContent.trim() ? 1 : 0.5
                                                                         }}>
@@ -2162,7 +2235,7 @@ function NewPostContent() {
                                                                 onClick={() => setIsAddingNewPreset(true)}
                                                                 style={{
                                                                     width: '100%', padding: '8px 0', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                                                                    border: '1px solid var(--accent)', background: 'rgba(27,67,50,0.1)', color: 'var(--accent)',
+                                                                    border: '1px solid var(--accent)', background: 'rgba(0,184,148,0.1)', color: 'var(--accent)',
                                                                     cursor: 'pointer'
                                                                 }}>
                                                                 + 추가
@@ -2361,7 +2434,7 @@ function NewPostContent() {
                                                             color: form.publish_options.category_id === c.id
                                                                 ? 'var(--accent)'
                                                                 : c.isSub ? 'var(--text-secondary)' : 'var(--text-primary)',
-                                                            background: form.publish_options.category_id === c.id ? 'rgba(27,67,50,0.12)' : 'transparent',
+                                                            background: form.publish_options.category_id === c.id ? 'rgba(0,184,148,0.12)' : 'transparent',
                                                             display: 'flex', alignItems: 'center', gap: 6,
                                                             borderTop: (!c.isSub && idx > 0) ? '1px solid var(--border)' : 'none',
                                                         }}
@@ -2496,10 +2569,10 @@ function NewPostContent() {
                                             {form.publish_options.map_address && (
                                                 <div style={{ 
                                                     padding: '8px 12px', 
-                                                    background: 'rgba(27,67,50,0.1)', 
+                                                    background: 'rgba(0,184,148,0.1)', 
                                                     borderRadius: 8, 
                                                     fontSize: 12, 
-                                                    border: '1px solid rgba(27,67,50,0.2)', 
+                                                    border: '1px solid rgba(0,184,148,0.2)', 
                                                     color: 'var(--accent)', 
                                                     fontWeight: 600,
                                                     display: 'flex',
@@ -2527,7 +2600,7 @@ function NewPostContent() {
                                                             transition: 'background 0.2s',
                                                             flexShrink: 0
                                                         }}
-                                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(27,67,50,0.2)'}
+                                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,184,148,0.2)'}
                                                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                                         title="선택 해제"
                                                     >
@@ -2880,7 +2953,7 @@ function NewPostContent() {
                                                 padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
                                                 border: '1px solid',
                                                 borderColor: activePreviewIdx === idx ? 'var(--accent)' : 'var(--border)',
-                                                background: activePreviewIdx === idx ? 'rgba(27,67,50,0.15)' : 'transparent',
+                                                background: activePreviewIdx === idx ? 'rgba(0,184,148,0.15)' : 'transparent',
                                                 color: activePreviewIdx === idx ? 'var(--accent)' : 'var(--text-muted)',
                                                 cursor: 'pointer', transition: 'all 0.15s'
                                             }}
@@ -2901,7 +2974,7 @@ function NewPostContent() {
                                         padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
                                         border: '1px solid',
                                         borderColor: isEditingPreview ? 'var(--success)' : 'var(--accent)',
-                                        background: isEditingPreview ? 'rgba(34,197,94,0.15)' : 'rgba(27,67,50,0.15)',
+                                        background: isEditingPreview ? 'rgba(34,197,94,0.15)' : 'rgba(0,184,148,0.15)',
                                         color: isEditingPreview ? 'var(--success)' : 'var(--accent)',
                                         cursor: 'pointer', transition: 'all 0.2s ease'
                                     }}>
@@ -2921,8 +2994,8 @@ function NewPostContent() {
                     {(previewData || previewLoading) && (
                         <div data-tour="post-seo-panel" style={{
                             padding: '24px 32px',
-                            background: 'rgba(27,67,50, 0.05)',
-                            borderBottom: '1px solid rgba(27,67,50, 0.1)',
+                            background: 'rgba(0,184,148, 0.05)',
+                            borderBottom: '1px solid rgba(0,184,148, 0.1)',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: 16
@@ -2962,7 +3035,7 @@ function NewPostContent() {
                                             return (
                                                 <span key={idx} style={{
                                                     fontSize: 11, padding: '2px 8px', borderRadius: 100,
-                                                    background: bodyCount > 0 ? 'rgba(27,67,50,0.2)' : 'rgba(255,255,255,0.05)',
+                                                    background: bodyCount > 0 ? 'rgba(0,184,148,0.2)' : 'rgba(255,255,255,0.05)',
                                                     border: '1px solid',
                                                     borderColor: bodyCount > 0 ? 'var(--accent)' : 'var(--border)',
                                                     color: bodyCount > 0 ? 'var(--text-primary)' : 'var(--text-muted)'
@@ -2995,8 +3068,7 @@ function NewPostContent() {
                     <div style={{ flex: 1, overflowY: 'auto', padding: '40px' }}>
                         {!previewData && !previewLoading ? (
                             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', textAlign: 'center' }}>
-                                <div style={{ fontSize: 48, marginBottom: 20, opacity: 0.3 }}>🖋️</div>
-                                <p style={{ fontSize: 16 }}>왼쪽 양식을 작성하고 <br /><strong>'원고 생성'</strong> 버튼을 클릭하세요.</p>
+                                <div style={{ fontSize: 16 }}>왼쪽 양식을 작성하고 <br /><strong>'원고 생성'</strong> 버튼을 클릭하세요.</div>
                             </div>
                         ) : (
                             <div className="animate-in">
@@ -3016,12 +3088,12 @@ function NewPostContent() {
                                                 onClick={() => setQuoteModalOpen(true)}
                                                 style={{
                                                     display: 'flex', alignItems: 'center', gap: 7,
-                                                    fontSize: 12, fontWeight: 700, padding: '5px 14px', borderRadius: 20,
-                                                    background: 'rgba(27,67,50,0.12)', border: '1px solid rgba(27,67,50,0.35)',
+                                                    fontSize: 12, fontWeight: 700, padding: '6px 16px', borderRadius: 20,
+                                                    background: 'rgba(0,184,148,0.1)', border: '1px solid rgba(0,184,148,0.3)',
                                                     color: 'var(--accent)', cursor: 'pointer', transition: 'background 0.15s',
                                                 }}
                                             >
-                                                <span>▌</span> 소제목 인용구 설정
+                                                소제목 인용구 설정
                                             </button>
                                             <span style={{
                                                 fontSize: 12, fontWeight: 700,
@@ -3035,70 +3107,81 @@ function NewPostContent() {
                                         </div>
                                     );
                                 })()}
-                                {/* Title Section */}
-                                <div style={{ marginBottom: 40 }}>
-                                    <label style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, display: 'block', fontWeight: 600, textTransform: 'uppercase' }}>
-                                        포스팅 제목 {isEditingPreview && <span style={{ color: 'var(--accent)', marginLeft: 6 }}>— 편집 중</span>}
-                                    </label>
-                                    {isEditingPreview ? (
-                                        <input
-                                            type="text"
-                                            value={previewData?.title || ''}
-                                            onChange={e => setPreviews(prev => { const next = [...prev]; if (next[activePreviewIdx]) next[activePreviewIdx] = { ...next[activePreviewIdx], title: e.target.value }; return next; })}
-                                            style={{
-                                                width: '100%', fontSize: 20, fontWeight: 800, color: 'var(--text-primary)',
-                                                lineHeight: 1.4, background: 'rgba(27,67,50,0.05)',
-                                                padding: '20px 24px', borderRadius: 16,
-                                                border: '2px solid var(--accent)',
-                                                outline: 'none', boxSizing: 'border-box'
-                                            }}
-                                        />
-                                    ) : (
-                                        <div style={{
-                                            fontSize: 24, fontWeight: 800, color: 'var(--text-primary)',
-                                            lineHeight: 1.4, background: 'rgba(0,0,0,0.2)',
-                                            padding: '24px', borderRadius: 16, border: '1px solid var(--border)'
-                                        }}>
-                                            {previewData?.title || (previewLoading ? '제목을 구상 중입니다...' : '')}
-                                        </div>
-                                    )}
-                                </div>
 
-                                {/* Main Body & Image Prompts Split */}
-                                <div className="bm-grid bm-grid-preview" style={{ gap: 24 }}>
-                                    {/* Content Scroll */}
-                                    <div>
-                                        <label style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, display: 'block', fontWeight: 600, textTransform: 'uppercase' }}>
-                                            본문 원고 {isEditingPreview && <span style={{ color: 'var(--accent)', marginLeft: 6 }}>— 편집 중</span>}
+                                {/* Naver SmartEditor ONE White Paper Canvas */}
+                                <div style={{
+                                    background: '#ffffff',
+                                    borderRadius: 16,
+                                    border: '1px solid #e2e8f0',
+                                    padding: '40px 36px',
+                                    boxShadow: '0 8px 30px rgba(0,0,0,0.06)',
+                                    marginBottom: 24,
+                                    boxSizing: 'border-box'
+                                }}>
+                                    {/* Title Section */}
+                                    <div style={{ marginBottom: 32, borderBottom: '1px solid #e2e8f0', paddingBottom: 24 }}>
+                                        <label style={{ fontSize: 11, color: '#00b894', marginBottom: 8, display: 'block', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                            네이버 포스팅 제목 {isEditingPreview && <span style={{ color: '#ef4444', marginLeft: 6 }}>— 편집 중</span>}
                                         </label>
                                         {isEditingPreview ? (
-                                            <textarea
-                                                value={previewData?.body || ''}
-                                                onChange={e => setPreviews(prev => { const next = [...prev]; if (next[activePreviewIdx]) next[activePreviewIdx] = { ...next[activePreviewIdx], body: e.target.value }; return next; })}
+                                            <input
+                                                type="text"
+                                                value={previewData?.title || ''}
+                                                onChange={e => setPreviews(prev => { const next = [...prev]; if (next[activePreviewIdx]) next[activePreviewIdx] = { ...next[activePreviewIdx], title: e.target.value }; return next; })}
                                                 style={{
-                                                    width: '100%', fontSize: 15, lineHeight: 1.8,
-                                                    color: 'var(--text-secondary)',
-                                                    background: 'rgba(27,67,50,0.05)',
-                                                    padding: '24px', borderRadius: 16,
-                                                    border: '2px solid var(--accent)',
-                                                    outline: 'none', resize: 'vertical',
-                                                    minHeight: 600, boxSizing: 'border-box',
-                                                    fontFamily: 'inherit', whiteSpace: 'pre-wrap'
+                                                    width: '100%', fontSize: 24, fontWeight: 800, color: '#0f172a',
+                                                    lineHeight: 1.4, background: '#ffffff',
+                                                    padding: '16px 20px', borderRadius: 10,
+                                                    border: '2px solid #00b894',
+                                                    outline: 'none', boxSizing: 'border-box'
                                                 }}
                                             />
                                         ) : (
                                             <div style={{
-                                                fontSize: 16, lineHeight: 1.8, color: 'var(--text-secondary)',
-                                                background: 'rgba(0,0,0,0.2)', padding: '24px', borderRadius: 16,
-                                                border: '1px solid var(--border)', whiteSpace: 'pre-wrap',
-                                                minHeight: 500
+                                                fontSize: 24, fontWeight: 800, color: '#0f172a',
+                                                lineHeight: 1.4, background: '#ffffff'
                                             }}>
-                                                {previewData?.body
-                                                    ? renderPreviewBody(previewData.body)
-                                                    : (previewLoading ? '원고를 작성하는 중입니다. 잠시만 기다려주세요...' : '')}
+                                                {previewData?.title || (previewLoading ? '제목을 구상 중입니다...' : '')}
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* Main Body & Image Prompts Split */}
+                                    <div className="bm-grid bm-grid-preview" style={{ gap: 24 }}>
+                                        {/* Content Scroll */}
+                                        <div>
+                                            <label style={{ fontSize: 11, color: '#00b894', marginBottom: 12, display: 'block', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                네이버 본문 원고 {isEditingPreview && <span style={{ color: '#ef4444', marginLeft: 6 }}>— 편집 중</span>}
+                                            </label>
+                                            {isEditingPreview ? (
+                                                <textarea
+                                                    value={previewData?.body || ''}
+                                                    onChange={e => setPreviews(prev => { const next = [...prev]; if (next[activePreviewIdx]) next[activePreviewIdx] = { ...next[activePreviewIdx], body: e.target.value }; return next; })}
+                                                    style={{
+                                                        width: '100%', fontSize: 16, lineHeight: 1.85,
+                                                        color: '#1e293b',
+                                                        background: '#ffffff',
+                                                        padding: '20px', borderRadius: 12,
+                                                        border: '2px solid #00b894',
+                                                        outline: 'none', resize: 'vertical',
+                                                        minHeight: 600, boxSizing: 'border-box',
+                                                        fontFamily: "'Nanum Gothic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                                                        whiteSpace: 'pre-wrap'
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div style={{
+                                                    fontSize: 16, lineHeight: 1.85, color: '#2d3748',
+                                                    background: '#ffffff', whiteSpace: 'pre-wrap',
+                                                    minHeight: 500,
+                                                    fontFamily: "'Nanum Gothic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                                                }}>
+                                                    {previewData?.body
+                                                        ? renderPreviewBody(previewData.body, accounts?.find(a => a.id === form.naver_account_id), form.publish_options)
+                                                        : (previewLoading ? '원고를 작성하는 중입니다. 잠시만 기다려주세요...' : '')}
+                                                </div>
+                                            )}
+                                        </div>
 
                                     {/* Side Info */}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -3111,7 +3194,7 @@ function NewPostContent() {
                                             {imageSource === 'stock' && (
                                                 <div data-tour="post-pexels-panel" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                                     {pexelsLoading && (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: 'rgba(27,67,50,0.05)', borderRadius: 12, border: '1px solid rgba(27,67,50,0.15)' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: 'rgba(0,184,148,0.05)', borderRadius: 12, border: '1px solid rgba(0,184,148,0.15)' }}>
                                                             <div style={{ width: 14, height: 14, border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
                                                             <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Pexels 이미지 검색 + 한글 번역 중...</span>
                                                         </div>
@@ -3124,7 +3207,7 @@ function NewPostContent() {
                                                                 display: 'flex', alignItems: 'center', gap: 10,
                                                                 padding: '10px 12px', borderRadius: 12,
                                                                 border: chosen ? '1.5px solid var(--accent)' : '1px solid var(--border)',
-                                                                background: chosen ? 'rgba(27,67,50,0.05)' : 'rgba(0,0,0,0.1)',
+                                                                background: chosen ? 'rgba(0,184,148,0.05)' : 'rgba(0,0,0,0.1)',
                                                                 cursor: slot.photos.length > 0 ? 'pointer' : 'default',
                                                                 transition: 'border 0.15s, background 0.15s'
                                                             }}
@@ -3195,8 +3278,8 @@ function NewPostContent() {
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                                 {previewData?.image_prompts?.map((p, i) => (
                                                     <div key={i} style={{
-                                                        fontSize: 12, padding: '12px', background: 'rgba(27,67,50,0.05)',
-                                                        border: '1px solid rgba(27,67,50,0.1)', borderRadius: 12,
+                                                        fontSize: 12, padding: '12px', background: 'rgba(0,184,148,0.05)',
+                                                        border: '1px solid rgba(0,184,148,0.1)', borderRadius: 12,
                                                         color: 'var(--text-secondary)', lineHeight: 1.4
                                                     }}>
                                                         <span style={{ color: 'var(--accent)', fontWeight: 800, marginRight: 6 }}>#{i + 1}</span>
@@ -3210,6 +3293,8 @@ function NewPostContent() {
                                             )}
                                         </div>
                                     </div>
+                                </div>
+                                {/* Naver SmartEditor ONE White Paper Canvas 닫기 */}
                                 </div>
                             </div>
                         )}
@@ -3273,7 +3358,7 @@ function NewPostContent() {
                     {postQueue.length > 0 && (
                         <div style={{
                             padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 800,
-                            background: 'rgba(27,67,50,0.25)', border: '1px solid var(--accent)',
+                            background: 'rgba(0,184,148,0.25)', border: '1px solid var(--accent)',
                             color: 'var(--accent)', flexShrink: 0
                         }}>
                             대기 {postQueue.length}개
@@ -3391,7 +3476,7 @@ function NewPostContent() {
                                             borderRadius: 12, overflow: 'hidden', position: 'relative',
                                             outline: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
                                             outlineOffset: 2,
-                                            boxShadow: isSelected ? '0 0 0 5px rgba(27,67,50,0.2)' : 'none',
+                                            boxShadow: isSelected ? '0 0 0 5px rgba(0,184,148,0.2)' : 'none',
                                             transition: 'outline 0.12s, box-shadow 0.12s'
                                         }}>
                                         <img
@@ -3441,7 +3526,7 @@ function NewPostContent() {
                                 style={{
                                     padding: '10px 26px', borderRadius: 10, fontSize: 13, fontWeight: 800,
                                     border: 'none',
-                                    background: pexelsModalTemp ? 'var(--accent)' : 'rgba(27,67,50,0.3)',
+                                    background: pexelsModalTemp ? 'var(--accent)' : 'rgba(0,184,148,0.3)',
                                     color: pexelsModalTemp ? '#fff' : 'rgba(255,255,255,0.4)',
                                     cursor: pexelsModalTemp ? 'pointer' : 'not-allowed',
                                     transition: 'background 0.15s, color 0.15s'
@@ -3476,7 +3561,7 @@ function NewPostContent() {
                 .spinner {
                     width: 48px;
                     height: 48px;
-                    border: 4px solid rgba(27,67,50, 0.1);
+                    border: 4px solid rgba(0,184,148, 0.1);
                     border-top: 4px solid var(--accent);
                     border-radius: 50%;
                     margin: 0 auto;

@@ -499,6 +499,83 @@ app.post('/api/keywords/trend', async (req, res) => {
 
 
 // ════════════════════════════════════════
+//  POST /api/keywords/chat-suggest — 대시보드 대화형 키워드 추천
+//  사용자와의 대화에서 핵심키워드/서브키워드/주제요약을 뽑아내고, 충분히 모이면
+//  실제 네이버 검색량까지 붙여서 "이대로 발행할까요?" 형태로 제안한다.
+// ════════════════════════════════════════
+app.post('/api/keywords/chat-suggest', authMiddleware, async (req, res) => {
+    const { history, gemini_api_key } = req.body;
+    if (!Array.isArray(history) || history.length === 0) return res.status(400).json({ error: 'history required' });
+    if (!gemini_api_key) return res.status(400).json({ error: '제미나이 API 키가 등록되지 않았습니다. 설정 > 프로필에서 Gemini API 키를 먼저 등록해주세요.' });
+
+    try {
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(gemini_api_key.trim());
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-2.5-flash',
+            generationConfig: { responseMimeType: 'application/json' },
+        });
+
+        const transcript = history
+            .slice(-20)
+            .map(h => `${h.role === 'user' ? '사용자' : '어시스턴트'}: ${h.text}`)
+            .join('\n');
+
+        const prompt = `당신은 네이버 블로그 글감을 정하도록 도와주는 어시스턴트입니다. 아래 대화를 보고, 포스팅을 시작하기에 충분한 정보(핵심 키워드, 서브 키워드 2~4개, 어떤 내용으로 쓸지 한두 문장 요약)가 모였는지 판단하세요.
+
+[대화 내역]
+${transcript}
+
+[규칙]
+- 정보가 부족하거나 주제가 너무 막연하면 ready=false로 하고, reply에 짧은 후속 질문을 하나만 하세요. 이 경우 main_keyword/sub_keywords/topic은 null로 두세요.
+- 충분하면 ready=true로 하고:
+  - main_keyword: 실제 네이버에 검색할 법한 구체적이고 짧은 키워드 문구 (문장 아님)
+  - sub_keywords: 연관 키워드 2~4개 배열
+  - topic: 어떤 내용으로 쓸지 1~2문장 요약
+  - reply에는 이 내용을 자연스럽게 요약해서 "이대로 포스팅을 시작할까요?"라고 물어보세요.
+- reply는 항상 친근한 한국어 존댓말로 3문장 이내.
+- 반드시 아래 JSON 형식으로만 출력하세요 (다른 텍스트 절대 금지):
+{"reply": "...", "ready": true, "main_keyword": "...", "sub_keywords": ["...", "..."], "topic": "..."}`;
+
+        const result = await model.generateContent(prompt);
+        const rawText = result.response.text();
+        let parsed;
+        try {
+            parsed = JSON.parse(rawText.replace(/```json|```/g, '').trim());
+        } catch (e) {
+            return res.status(500).json({ error: 'AI 응답 해석에 실패했습니다. 다시 한 번 말씀해주세요.' });
+        }
+
+        const responseBody = {
+            reply: parsed.reply || '음, 다시 한 번 말씀해주시겠어요?',
+            ready: !!(parsed.ready && parsed.main_keyword),
+        };
+
+        if (responseBody.ready) {
+            responseBody.main_keyword = parsed.main_keyword;
+            responseBody.sub_keywords = Array.isArray(parsed.sub_keywords) ? parsed.sub_keywords.slice(0, 4) : [];
+            responseBody.topic = parsed.topic || parsed.main_keyword;
+
+            // 실제 검색량 조회 — 실패해도 제안 자체는 그대로 진행
+            try {
+                const naverAd = require('./naver_ad_api');
+                const stripSpace = (s) => s.replace(/\s+/g, '');
+                const stats = await naverAd.getKeywordStats([stripSpace(parsed.main_keyword)]);
+                if (stats && stats.length > 0) {
+                    const match = stats.find(s => s.relKeyword === stripSpace(parsed.main_keyword)) || stats[0];
+                    responseBody.volume = (parseInt(match.monthlyPcQcCnt) || 0) + (parseInt(match.monthlyMobileQcCnt) || 0);
+                }
+            } catch (_) { /* 검색량 조회 실패는 무시 */ }
+        }
+
+        res.json(responseBody);
+    } catch (err) {
+        console.error(`[Engine API] Keyword chat error: ${err.message}`);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ════════════════════════════════════════
 //  GET /api/recommendations — 계정 컨셉 기반 키워드 추천
 // ════════════════════════════════════════
 app.get('/api/recommendations', async (req, res) => {

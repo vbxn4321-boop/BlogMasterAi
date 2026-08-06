@@ -492,13 +492,13 @@ export default function SignupPage() {
             <div style={{
                 minHeight: "100vh",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                background: "radial-gradient(ellipse at top, rgba(27,67,50,0.1), transparent 60%), var(--bg-primary)",
+                background: "radial-gradient(ellipse at top, rgba(0,184,148,0.08), transparent 60%), var(--bg-primary)",
                 padding: "40px 20px",
             }}>
                 <div className="glass-card animate-in" style={{ maxWidth: 460, width: "100%" }}>
                     <h1 style={{
                         fontSize: 24, fontWeight: 800, marginBottom: 8,
-                        background: "var(--gradient-1)",
+                        backgroundImage: "var(--gradient-1)",
                         WebkitBackgroundClip: "text",
                         WebkitTextFillColor: "transparent",
                     }}>

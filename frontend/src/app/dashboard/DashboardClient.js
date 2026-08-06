@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { StatCard, ResponsiveTable } from '@/components/ui';
+import { ResponsiveTable } from '@/components/ui';
 import { displayNaverId } from '@/lib/naver';
 import RecommendationsWidget from './RecommendationsWidget';
 import DemoRecommendationsWidget from './DemoRecommendationsWidget';
+import KeywordChatBox from './KeywordChatBox';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
 import { dashboardTourSteps } from '@/lib/onboardingSteps';
-
-const ROTATE_INTERVAL_MS = 5500;
 
 function RankBadge({ rank }) {
     const color = rank <= 10 ? 'var(--success)' : rank <= 30 ? 'var(--warning)' : 'var(--error)';
@@ -18,55 +17,7 @@ function RankBadge({ rank }) {
     );
 }
 
-function formatDate(iso) {
-    const d = new Date(iso);
-    return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-}
-
-// 항목이 1개 보이다가 2~3초마다 자동으로 다음 항목으로 바뀌고, 클릭하면 전체(최대 5개)를
-// 목록으로 펼쳐 보여주는 카드. "최근 발행 키워드"와 "상위 노출 포스트" 두 곳에서 공용으로 쓴다.
-function RotatingStatCard({ label, items, resetKey, emptyMessage, renderItem, renderListItem }) {
-    const [index, setIndex] = useState(0);
-    const [expanded, setExpanded] = useState(false);
-
-    // 선택된 계정이 바뀌면 순환/펼침 상태를 처음으로 되돌린다
-    useEffect(() => {
-        setIndex(0);
-        setExpanded(false);
-    }, [resetKey]);
-
-    useEffect(() => {
-        if (expanded || items.length <= 1) return;
-        const timer = setInterval(() => {
-            setIndex(i => (i + 1) % items.length);
-        }, ROTATE_INTERVAL_MS);
-        return () => clearInterval(timer);
-    }, [expanded, items.length]);
-
-    if (items.length === 0) {
-        return (
-            <StatCard label={label}>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>{emptyMessage}</div>
-            </StatCard>
-        );
-    }
-
-    return (
-        <StatCard label={label}>
-            <div onClick={() => setExpanded(e => !e)} style={{ cursor: 'pointer', marginTop: 4 }}>
-                {expanded ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {items.map((item, i) => <div key={i}>{renderListItem(item)}</div>)}
-                    </div>
-                ) : (
-                    renderItem(items[index])
-                )}
-            </div>
-        </StatCard>
-    );
-}
-
-export default function DashboardClient({ accounts, rankingsByAccount, keywordsByAccount, postsByAccount, isSubscribed }) {
+export default function DashboardClient({ accounts, rankingsByAccount, keywordsByAccount, postsByAccount, rankTrendByAccount, monthlyStatsByAccount, isSubscribed }) {
     const [selectedId, setSelectedId] = useState(accounts[0]?.id || null);
     const [isOpen, setIsOpen] = useState(false);
 
@@ -74,21 +25,26 @@ export default function DashboardClient({ accounts, rankingsByAccount, keywordsB
     const rankings = (selectedId && rankingsByAccount[selectedId]) || [];
     const keywords = (selectedId && keywordsByAccount[selectedId]) || [];
     const posts = (selectedId && postsByAccount[selectedId]) || [];
+    const rankTrend = (selectedId && rankTrendByAccount?.[selectedId]) || null;
+    const monthlyStats = (selectedId && monthlyStatsByAccount?.[selectedId]) || null;
 
     return (
         <>
-            {/* Stat Cards */}
-            <div className="bm-grid bm-grid-3" style={{ marginBottom: 40 }}>
+            {/* 계정 선택 + 핵심 지표를 한 줄 요약바로 압축하고, 추천 키워드를 전체 폭 메인 콘텐츠로 배치 */}
+            <div
+                className="glass-card"
+                data-tour="dash-account-selector"
+                style={{
+                    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px 28px',
+                    padding: '16px 24px', marginBottom: 24, position: 'relative', zIndex: isOpen ? 10 : 'auto',
+                }}
+            >
                 {/* 연결된 계정 — 선택형 드롭다운 */}
-                {/* glass-card는 backdrop-filter 때문에 각자 독립된 stacking context를 만들어서,
-                    내부 드롭다운에 z-index를 아무리 줘도 뒤에 오는 다른 glass-card(추천 키워드 등)를
-                    못 넘어선다. 카드 자체를 열려있을 때만 positioned + z-index로 끌어올려야 한다. */}
-                <div data-tour="dash-account-selector">
-                <StatCard label="연결된 계정" style={{ position: 'relative', zIndex: isOpen ? 10 : 'auto' }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
                     {accounts.length === 0 ? (
-                        <span className="stat-value" style={{ fontSize: 15 }}>등록된 계정 없음</span>
+                        <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-muted)' }}>등록된 계정 없음</span>
                     ) : (
-                        <div style={{ position: 'relative' }}>
+                        <>
                             {isOpen && (
                                 <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setIsOpen(false)} />
                             )}
@@ -96,13 +52,13 @@ export default function DashboardClient({ accounts, rankingsByAccount, keywordsB
                                 type="button"
                                 onClick={() => setIsOpen(o => !o)}
                                 style={{
-                                    position: 'relative', zIndex: 100, width: '100%', display: 'flex',
-                                    alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                                    position: 'relative', zIndex: 100, display: 'flex',
+                                    alignItems: 'center', gap: 8,
                                     background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
                                     color: 'var(--text-primary)', textAlign: 'left',
                                 }}
                             >
-                                <span className="stat-value" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <span className="stat-value" style={{ fontSize: 20, whiteSpace: 'nowrap' }}>
                                     {selectedAccount ? displayNaverId(selectedAccount.naver_id) : '계정 선택'}
                                 </span>
                                 <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
@@ -111,7 +67,7 @@ export default function DashboardClient({ accounts, rankingsByAccount, keywordsB
                             </button>
                             {isOpen && (
                                 <div style={{
-                                    position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0,
+                                    position: 'absolute', top: 'calc(100% + 8px)', left: 0, minWidth: 220,
                                     background: 'var(--bg-secondary)', border: '1px solid var(--border)',
                                     borderRadius: 10, overflowY: 'auto', maxHeight: 240, zIndex: 101,
                                     boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
@@ -121,10 +77,10 @@ export default function DashboardClient({ accounts, rankingsByAccount, keywordsB
                                             key={acc.id}
                                             onClick={() => { setSelectedId(acc.id); setIsOpen(false); }}
                                             style={{
-                                                padding: '10px 14px', cursor: 'pointer', fontSize: 13,
+                                                padding: '10px 14px', cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap',
                                                 fontWeight: acc.id === selectedId ? 700 : 500,
                                                 color: acc.id === selectedId ? 'var(--accent)' : 'var(--text-primary)',
-                                                background: acc.id === selectedId ? 'rgba(27,67,50,0.12)' : 'transparent',
+                                                background: acc.id === selectedId ? 'rgba(0,184,148,0.12)' : 'transparent',
                                             }}
                                         >
                                             <div>{displayNaverId(acc.naver_id)}</div>
@@ -135,71 +91,62 @@ export default function DashboardClient({ accounts, rankingsByAccount, keywordsB
                                     ))}
                                 </div>
                             )}
-                        </div>
+                        </>
                     )}
-                </StatCard>
                 </div>
 
-                {/* 최근 발행 키워드 — 선택 계정 기준 (1개씩 자동 순환, 클릭 시 최대 5개 목록) */}
-                <div data-tour="dash-keywords-card">
-                <RotatingStatCard
-                    label="최근 발행 키워드"
-                    items={keywords}
-                    resetKey={selectedId}
-                    emptyMessage={accounts.length === 0 ? '-' : '아직 발행된 키워드가 없습니다.'}
-                    renderItem={(item) => (
-                        <div>
-                            <div className="stat-value" style={{ fontSize: 19, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {item.keyword}
-                            </div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{formatDate(item.createdAt)}</div>
-                        </div>
-                    )}
-                    renderListItem={(item) => (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.keyword}</span>
-                            <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{formatDate(item.createdAt)}</span>
-                        </div>
-                    )}
-                />
-                </div>
+                {accounts.length > 0 && (
+                    <>
+                        <div style={{ width: 1, height: 28, background: 'var(--border)', flexShrink: 0 }} />
 
-                {/* 상위 노출 포스트 — 선택 계정 기준 (1개씩 자동 순환, 클릭 시 최대 5개 목록) */}
-                <div data-tour="dash-ranking-card">
-                <RotatingStatCard
-                    label="상위 노출 포스트"
-                    items={rankings.slice(0, 5)}
-                    resetKey={selectedId}
-                    emptyMessage={
-                        accounts.length === 0
-                            ? '-'
-                            : <>아직 확인된 순위가 없습니다.<br /><a href="/dashboard/analytics" style={{ color: 'var(--accent)', fontWeight: 600 }}>순위분석에서 확인하기 →</a></>
-                    }
-                    renderItem={(item) => (
-                        <div>
-                            <div className="stat-value" style={{ fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {item.title}
+                        {/* 최근 발행 키워드 */}
+                        <div data-tour="dash-keywords-card" style={{ minWidth: 0 }}>
+                            <div className="stat-label" style={{ marginBottom: 2 }}>최근 발행 키워드</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+                                {keywords[0]?.keyword || '-'}
                             </div>
-                            <div style={{ marginTop: 4 }}><RankBadge rank={item.rank} /></div>
                         </div>
-                    )}
-                    renderListItem={(item) => (
-                        <div
-                            style={{
-                                display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
-                                color: 'var(--text-primary)', fontSize: 12.5,
-                            }}
-                        >
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
-                            <RankBadge rank={item.rank} />
+
+                        <div style={{ width: 1, height: 28, background: 'var(--border)', flexShrink: 0 }} />
+
+                        {/* 상위 노출 포스트 */}
+                        <div data-tour="dash-ranking-card">
+                            <div className="stat-label" style={{ marginBottom: 2 }}>상위 노출 포스트</div>
+                            {rankTrend ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <RankBadge rank={rankTrend.currentRank} />
+                                    {rankTrend.delta != null && rankTrend.delta !== 0 && (
+                                        <span style={{
+                                            fontSize: 11, fontWeight: 700,
+                                            color: rankTrend.delta > 0 ? 'var(--success)' : 'var(--error)',
+                                        }}>
+                                            {rankTrend.delta > 0 ? '▲' : '▼'} {Math.abs(rankTrend.delta)}
+                                        </span>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>-</div>
+                            )}
                         </div>
-                    )}
-                />
-                </div>
+
+                        <div style={{ width: 1, height: 28, background: 'var(--border)', flexShrink: 0 }} />
+
+                        {/* 이번 달 발행 통계 */}
+                        <div data-tour="dash-monthly-stats">
+                            <div className="stat-label" style={{ marginBottom: 2 }}>이번 달 발행</div>
+                            <div style={{ fontSize: 14, fontWeight: 700 }}>
+                                {monthlyStats && monthlyStats.total > 0 ? `${monthlyStats.total}건 · 성공률 ${monthlyStats.successRate}%` : '-'}
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
 
-            {/* Recommendations Widget — 선택된 계정 기준 */}
-            <div data-tour="dash-recommendations" style={{ maxWidth: 780, margin: '0 auto' }}>
+            {/* 대화형 키워드 추천 — 자유 주제 입력 → AI가 핵심/서브 키워드·요약 제안 → 확정 시 새 포스팅으로 이동 */}
+            <KeywordChatBox />
+
+            {/* Recommendations Widget — 전체 폭 메인 콘텐츠 */}
+            <div data-tour="dash-recommendations" style={{ marginBottom: 40 }}>
                 {isSubscribed ? (
                     <RecommendationsWidget account={selectedAccount} />
                 ) : (

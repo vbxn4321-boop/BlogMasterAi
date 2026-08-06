@@ -123,7 +123,7 @@ export default function SubscribePlanModal({ open, onClose, onSubscribed }) {
                                 {isPro && (
                                     <div style={{
                                         position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
-                                        background: 'linear-gradient(135deg, #1b4332, #10b981)', color: '#fff',
+                                        background: 'linear-gradient(135deg, #00b894, #10b981)', color: '#fff',
                                         padding: '4px 14px', borderRadius: 100, fontSize: 11, fontWeight: 800,
                                         boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)', whiteSpace: 'nowrap'
                                     }}>
@@ -166,7 +166,7 @@ export default function SubscribePlanModal({ open, onClose, onSubscribed }) {
                                             padding: '12px 0',
                                             borderRadius: 10,
                                             fontWeight: 800,
-                                            background: isPro ? 'linear-gradient(135deg, #1b4332, #2d6a4f)' : 'var(--accent)',
+                                            background: isPro ? 'linear-gradient(135deg, #00b894, #0090ff)' : 'var(--accent)',
                                             opacity: subscribingKey && subscribingKey !== plan.plan_key ? 0.5 : 1
                                         }}
                                     >

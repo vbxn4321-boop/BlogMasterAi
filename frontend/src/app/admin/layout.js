@@ -71,10 +71,12 @@ export default function AdminLayout({ children }) {
 
                     <div className="topnav-actions">
                         <button onClick={toggleTheme} className="topnav-icon-btn" title={isDark ? '라이트 모드' : '다크 모드'}>
-                            {isDark ? '☀️' : '🌙'}
+                            <span>{isDark ? '☀️' : '🌙'}</span>
+                            <span>{isDark ? '라이트' : '다크'}</span>
                         </button>
                         <button onClick={handleLogout} className="topnav-icon-btn" title="로그아웃">
-                            🚪
+                            <span>🚪</span>
+                            <span>로그아웃</span>
                         </button>
                     </div>
                 </div>

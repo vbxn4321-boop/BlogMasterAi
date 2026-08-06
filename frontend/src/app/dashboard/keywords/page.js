@@ -818,7 +818,7 @@ export default function KeywordAnalysisPage() {
                                 <div style={{
                                     height: '100%',
                                     width: `${progressPercent}%`,
-                                    background: 'linear-gradient(90deg, #6366f1, #a78bfa)',
+                                    background: 'linear-gradient(90deg, #6366f1, #3b9eff)',
                                     borderRadius: '99px',
                                     transition: 'width 0.6s ease'
                                 }} />

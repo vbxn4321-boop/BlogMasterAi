@@ -33,12 +33,18 @@ export default function OnboardingTour({ pageKey, steps, onEnd }) {
     // 처음 방문이고 "다시 보지 않기"를 누른 적이 없으면 자동 시작 — 이때도 startOnboarding을
     // 그대로 호출해서, 수동 재시작과 동일한 이벤트 경로를 타게 한다(페이지 쪽 리스너가
     // 자동 시작인지 수동 재시작인지 구분할 필요 없이 항상 반응할 수 있도록).
-    // 처음 방문이고 "다시 보지 않기"를 누른 적이 없으면 자동 시작
+    // 신규 가입한 첫 세션이고 "다시 보지 않기"를 누른 적이 없으면 최초 1회만 자동 시작.
+    // 기존 회원 로그인이나 수동 재시작 시에는 자동으로 팝업되지 않으며 💡 가이드 버튼 클릭 시에만 수동으로 열림.
     useEffect(() => {
         try {
-            if (!localStorage.getItem(STORAGE_PREFIX + pageKey)) {
+            const isGlobalDismissed = localStorage.getItem('bm_onboarding_global_dismissed');
+            const isPageDismissed = localStorage.getItem(STORAGE_PREFIX + pageKey);
+            const isNewUserFirstTime = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('bm_new_user_welcome');
+
+            if (isNewUserFirstTime && !isGlobalDismissed && !isPageDismissed) {
                 const timer = setTimeout(() => {
                     startOnboarding(pageKey);
+                    try { sessionStorage.removeItem('bm_new_user_welcome'); } catch (_) {}
                 }, 600);
                 return () => clearTimeout(timer);
             }
@@ -104,7 +110,10 @@ export default function OnboardingTour({ pageKey, steps, onEnd }) {
     }, [active, stepIndex, steps]);
 
     const markAsDismissed = () => {
-        try { localStorage.setItem(STORAGE_PREFIX + pageKey, '1'); } catch (_) {}
+        try {
+            localStorage.setItem(STORAGE_PREFIX + pageKey, '1');
+            localStorage.setItem('bm_onboarding_global_dismissed', '1');
+        } catch (_) {}
     };
 
     const close = () => {

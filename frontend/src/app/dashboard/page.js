@@ -9,12 +9,17 @@ export default async function DashboardPage() {
 
     // 아래 5개 쿼리는 전부 user.id에만 의존하고 서로의 결과를 참조하지 않으므로 동시에 실행한다.
     // (rankings 조회만 publishedPosts의 글 id 목록이 있어야 해서 이 배치 뒤에 따로 실행)
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
     const [
         { data: profile },
         { data: accounts },
         { data: publishedPosts },
         { data: recentPublished },
         { data: recentPosts },
+        { data: monthlyPosts },
     ] = await Promise.all([
         supabase.from('profiles').select('plan_type').eq('id', user?.id).single(),
         supabase.from('naver_accounts').select('id, naver_id, concept, is_session_valid').eq('user_id', user?.id),
@@ -40,6 +45,12 @@ export default async function DashboardPage() {
             .neq('status', 'failed')
             .order('created_at', { ascending: false })
             .limit(150),
+        // 계정별 "이번 달 발행 통계"(총 발행 수 · 성공률)용 — 성공/실패 둘 다 필요하다.
+        supabase.from('posts')
+            .select('naver_account_id, status')
+            .eq('user_id', user?.id)
+            .in('status', ['success', 'failed'])
+            .gte('created_at', startOfMonth.toISOString()),
     ]);
 
     const isSubscribed = profile?.plan_type === 'pro';
@@ -74,6 +85,40 @@ export default async function DashboardPage() {
         });
     }
     Object.values(rankingsByAccount).forEach(list => list.sort((a, b) => a.rank - b.rank));
+
+    // 계정별 "순위 추이" — 각 계정의 상위 노출 포스트(순위가 가장 좋은 글) 하나를 골라
+    // 그 글의 순위 체크 이력 전체(rankingRows에 이미 다 들어있음)를 시간순으로 뽑아 스파크라인 데이터로 만든다.
+    const rankTrendByAccount = {};
+    for (const [accId, list] of Object.entries(rankingsByAccount)) {
+        const topPost = list[0];
+        if (!topPost) continue;
+        const history = (rankingRows || [])
+            .filter(r => r.post_id === topPost.postId)
+            .sort((a, b) => new Date(a.checked_at) - new Date(b.checked_at));
+        if (history.length === 0) continue;
+        const points = history.map(r => ({ date: r.checked_at, rank: r.rank_position }));
+        const currentRank = points[points.length - 1].rank;
+        const previousRank = points.length > 1 ? points[points.length - 2].rank : null;
+        rankTrendByAccount[accId] = {
+            title: topPost.title,
+            keyword: topPost.keyword,
+            points,
+            currentRank,
+            delta: previousRank != null ? previousRank - currentRank : null, // 양수면 순위 상승(개선)
+        };
+    }
+
+    // 계정별 "이번 달 발행 통계"
+    const monthlyStatsByAccount = {};
+    for (const post of (monthlyPosts || [])) {
+        const accId = post.naver_account_id;
+        if (!monthlyStatsByAccount[accId]) monthlyStatsByAccount[accId] = { total: 0, success: 0 };
+        monthlyStatsByAccount[accId].total += 1;
+        if (post.status === 'success') monthlyStatsByAccount[accId].success += 1;
+    }
+    Object.values(monthlyStatsByAccount).forEach(s => {
+        s.successRate = s.total > 0 ? Math.round((s.success / s.total) * 100) : 0;
+    });
 
     // 계정별 "최근 발행 키워드" 집계. 우선순위:
     // 1) content_json.data_asset.target_keywords.main — AI가 원고 생성 시 실제로 분석해서 고른 키워드
@@ -130,16 +175,34 @@ export default async function DashboardPage() {
 
     return (
         <div className="animate-in">
-            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>대시보드</h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 32 }}>
-                {user?.email}님, 환영합니다.
-            </p>
+            <div style={{
+                position: 'relative', overflow: 'hidden',
+                background: 'var(--gradient-1)', borderRadius: 'var(--radius-lg)',
+                padding: '28px 32px', marginBottom: 28, color: '#fff',
+            }}>
+                <div style={{
+                    position: 'absolute', top: -60, right: -40, width: 220, height: 220,
+                    borderRadius: '50%', background: 'rgba(255,255,255,0.12)',
+                }} />
+                <div style={{
+                    position: 'absolute', bottom: -80, right: 120, width: 160, height: 160,
+                    borderRadius: '50%', background: 'rgba(255,255,255,0.08)',
+                }} />
+                <div style={{ position: 'relative' }}>
+                    <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 6 }}>대시보드</h1>
+                    <p style={{ fontSize: 14, opacity: 0.9 }}>
+                        {user?.email}님, 환영합니다.
+                    </p>
+                </div>
+            </div>
 
             <DashboardClient
                 accounts={accounts || []}
                 rankingsByAccount={rankingsByAccount}
                 keywordsByAccount={keywordsByAccount}
                 postsByAccount={postsByAccount}
+                rankTrendByAccount={rankTrendByAccount}
+                monthlyStatsByAccount={monthlyStatsByAccount}
                 isSubscribed={isSubscribed}
             />
         </div>

@@ -181,7 +181,9 @@ export default function InquiryWidget() {
                         {view === 'new' && (
                             sendDone ? (
                                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                                    <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
+                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(16,185,129,0.15)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                                    </div>
                                     <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>문의가 접수되었습니다.<br />답변이 오면 이 아이콘에 표시됩니다.</div>
                                 </div>
                             ) : (

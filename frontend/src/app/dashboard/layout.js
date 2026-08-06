@@ -82,6 +82,7 @@ export default function DashboardLayout({ children }) {
     const [showExtensionBanner, setShowExtensionBanner] = useState(false);
     const [showExtensionGuide, setShowExtensionGuide] = useState(false);
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
+    const [userEmail, setUserEmail] = useState('');
     const uploadPollRef = useRef(null);
     const supabase = createClient();
 
@@ -96,6 +97,7 @@ export default function DashboardLayout({ children }) {
                 router.push('/login');
                 return;
             }
+            setUserEmail(user.email || '');
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('is_admin, plan_type')
@@ -240,184 +242,139 @@ export default function DashboardLayout({ children }) {
     );
 
     return (
-        <div style={{ minHeight: '100vh' }}>
-            {/* Top Navigation */}
-            <header className="topnav">
-                <div className="topnav-inner">
-                    <Link href="/dashboard" className="topnav-logo">블로그 마스터 AI</Link>
+        <div className="app-shell">
+            {mobileNavOpen && (
+                <div className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} />
+            )}
 
-                    <nav className="topnav-links">
-                        {navItems.map((item) => (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={`topnav-link ${pathname === item.href ? 'active' : ''}`}
-                            >
-                                <span style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>
-                                {item.label}
-                            </Link>
-                        ))}
-                    </nav>
+            {/* Sidebar */}
+            <aside className={`sidebar ${mobileNavOpen ? 'open' : ''}`}>
+                <Link href="/dashboard" className="sidebar-logo">
+                    <span className="sidebar-logo-mark">B</span>
+                    <span className="sidebar-logo-text">블로그 마스터 AI</span>
+                </Link>
 
-                    <div className="topnav-actions">
-                        {uploadBadge}
+                <nav className="sidebar-nav">
+                    {navItems.map((item) => (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            className={`sidebar-link ${pathname === item.href ? 'active' : ''}`}
+                        >
+                            {item.icon}
+                            {item.label}
+                        </Link>
+                    ))}
+                </nav>
+
+                <div className="sidebar-spacer" />
+
+                <div className="sidebar-footer">
+                    {onboardingPageKey && (
                         <button
-                            onClick={() => setShowExtensionGuide(true)}
-                            style={{
-                                textDecoration: 'none',
-                                fontSize: 12,
-                                fontWeight: 700,
-                                padding: '5px 12px',
-                                borderRadius: 20,
-                                background: 'rgba(59, 130, 246, 0.12)',
-                                border: '1px solid rgba(59, 130, 246, 0.3)',
-                                color: '#3b82f6',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease'
-                            }}
-                            title="확장프로그램 설치 가이드 및 다운로드"
+                            onClick={() => startOnboarding(onboardingPageKey)}
+                            className="sidebar-link"
+                            style={{ width: '100%', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', marginBottom: 4 }}
                         >
                             <Icons.HelpCircle />
-                            확장프로그램 설치
+                            가이드 다시보기
                         </button>
-                        {!isSubscribed && (
-                            <Link
-                                href="/dashboard/post"
-                                style={{
-                                    textDecoration: 'none',
-                                    fontSize: 12,
-                                    fontWeight: 800,
-                                    padding: '5px 12px',
-                                    borderRadius: 20,
-                                    background: freeTrialCount > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                    border: freeTrialCount > 0 ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-                                    color: freeTrialCount > 0 ? '#10b981' : '#ef4444',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 4
-                                }}
-                            >
-                                🎁 무료 {freeTrialCount}회 남음
-                            </Link>
-                        )}
-                        {onboardingPageKey && (
-                            <button onClick={() => startOnboarding(onboardingPageKey)} className="topnav-icon-btn" title="온보딩 다시보기">
-                                💡
-                            </button>
-                        )}
-                        <button onClick={toggleTheme} className="topnav-icon-btn" title={isDark ? '라이트 모드' : '다크 모드'}>
-                            {isDark ? '☀️' : '🌙'}
-                        </button>
-                        <button onClick={handleLogout} className="topnav-icon-btn" title="로그아웃">
+                    )}
+                    <div className="sidebar-user">
+                        <div className="sidebar-user-avatar">{(userEmail[0] || '?').toUpperCase()}</div>
+                        <span className="sidebar-user-email" title={userEmail}>{userEmail}</span>
+                        <button onClick={handleLogout} className="sidebar-user-logout" title="로그아웃">
                             <Icons.LogOut />
                         </button>
                     </div>
+                </div>
+            </aside>
 
+            {/* Main column */}
+            <div className="app-main">
+                <header className="app-topbar">
                     <button
                         type="button"
-                        className="topnav-hamburger"
+                        className="sidebar-hamburger"
                         aria-label="메뉴 열기"
                         aria-expanded={mobileNavOpen}
                         onClick={() => setMobileNavOpen(v => !v)}
                     >
                         ☰
                     </button>
-                </div>
 
-                {mobileNavOpen && (
-                    <div className="topnav-dropdown">
-                        {navItems.map((item) => (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={`topnav-link ${pathname === item.href ? 'active' : ''}`}
-                            >
-                                <span style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>
-                                {item.label}
-                            </Link>
-                        ))}
-                        <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0' }} />
-                        {uploadBadge && <div style={{ padding: '4px 14px' }}>{uploadBadge}</div>}
-                        <button
-                            onClick={() => { setShowExtensionGuide(true); setMobileNavOpen(false); }}
-                            className="topnav-link"
-                            style={{ border: 'none', background: 'none', cursor: 'pointer', width: '100%', justifyContent: 'flex-start', color: '#3b82f6' }}
-                        >
-                            <span style={{ display: 'flex', alignItems: 'center' }}><Icons.HelpCircle /></span>
-                            확장프로그램 설치
-                        </button>
-                        {onboardingPageKey && (
-                            <button
-                                onClick={() => { startOnboarding(onboardingPageKey); setMobileNavOpen(false); }}
-                                className="topnav-link"
-                                style={{ border: 'none', background: 'none', cursor: 'pointer', width: '100%', justifyContent: 'flex-start' }}
-                            >
-                                <span>💡</span>
-                                온보딩 다시보기
-                            </button>
-                        )}
-                        <button
-                            onClick={toggleTheme}
-                            className="topnav-link"
-                            style={{ border: 'none', background: 'none', cursor: 'pointer', width: '100%', justifyContent: 'flex-start' }}
-                        >
-                            <span>{isDark ? '☀️' : '🌙'}</span>
-                            {isDark ? '라이트 모드' : '다크 모드'}
-                        </button>
-                        <button
-                            onClick={handleLogout}
-                            className="topnav-link"
-                            style={{ border: 'none', background: 'none', cursor: 'pointer', width: '100%', justifyContent: 'flex-start' }}
-                        >
-                            <span style={{ display: 'flex', alignItems: 'center' }}><Icons.LogOut /></span>
-                            로그아웃
-                        </button>
-                    </div>
-                )}
-            </header>
-
-            {mobileNavOpen && (
-                <div className="topnav-backdrop" onClick={() => setMobileNavOpen(false)} />
-            )}
-
-            {/* Main Content */}
-            <main className="main-content">
-                {showExtensionBanner && (
-                    <div style={{
-                        display: 'flex', alignItems: 'center', gap: 12,
-                        background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.35)',
-                        borderRadius: 10, padding: '12px 16px', margin: '16px 16px 0',
-                        fontSize: 13, color: '#fbbf24',
-                    }}>
-                        <span style={{ fontSize: 18 }}>⚠️</span>
-                        <span style={{ flex: 1 }}>
-                            <strong>Blog Master 확장프로그램이 연결되지 않았습니다.</strong>
-                            &nbsp; 확장프로그램을 다운로드 후 크롬에 추가해 주세요.
-                        </span>
-                        <button
-                            onClick={() => setShowExtensionGuide(true)}
+                    {uploadBadge}
+                    <button
+                        onClick={() => setShowExtensionGuide(true)}
+                        className="topnav-icon-btn"
+                        style={{ color: '#3b82f6' }}
+                        title="확장프로그램 설치 가이드 및 다운로드"
+                    >
+                        <Icons.HelpCircle />
+                        <span>확장프로그램</span>
+                    </button>
+                    {!isSubscribed && (
+                        <Link
+                            href="/dashboard/post"
                             style={{
-                                background: 'rgba(251,191,36,0.2)', border: '1px solid rgba(251,191,36,0.4)',
-                                color: '#fbbf24', borderRadius: 6, padding: '4px 10px', fontSize: 12,
-                                cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap'
+                                textDecoration: 'none',
+                                fontSize: 12,
+                                fontWeight: 700,
+                                padding: '5px 9px',
+                                borderRadius: 6,
+                                background: freeTrialCount > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                border: freeTrialCount > 0 ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)',
+                                color: freeTrialCount > 0 ? '#10b981' : '#ef4444',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                whiteSpace: 'nowrap'
                             }}
                         >
-                            설치 방법 보기
-                        </button>
-                        <button onClick={() => {
-                            setShowExtensionBanner(false);
-                            sessionStorage.setItem('ext_banner_dismissed', '1');
-                        }} style={{
-                            background: 'none', border: 'none', color: '#fbbf24',
-                            cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '0 4px'
-                        }}>✕</button>
-                    </div>
-                )}
-                {children}
-            </main>
+                            무료 {freeTrialCount}회
+                        </Link>
+                    )}
+                    <button onClick={toggleTheme} className="topnav-icon-btn" title={isDark ? '라이트 모드' : '다크 모드'}>
+                        <span>{isDark ? '라이트' : '다크'}</span>
+                    </button>
+                </header>
+
+                {/* Main Content */}
+                <main className="app-content">
+                    {showExtensionBanner && (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 12,
+                            background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.35)',
+                            borderRadius: 10, padding: '12px 16px', marginBottom: 20,
+                            fontSize: 13, color: '#fbbf24',
+                        }}>
+                            <span style={{ fontSize: 12, fontWeight: 800, padding: '2px 6px', background: 'rgba(251,191,36,0.2)', borderRadius: 4 }}>주의</span>
+                            <span style={{ flex: 1 }}>
+                                <strong>Blog Master 확장프로그램이 연결되지 않았습니다.</strong>
+                                &nbsp; 확장프로그램을 다운로드 후 크롬에 추가해 주세요.
+                            </span>
+                            <button
+                                onClick={() => setShowExtensionGuide(true)}
+                                style={{
+                                    background: 'rgba(251,191,36,0.2)', border: '1px solid rgba(251,191,36,0.4)',
+                                    color: '#fbbf24', borderRadius: 6, padding: '4px 10px', fontSize: 12,
+                                    cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap'
+                                }}
+                            >
+                                설치 방법 보기
+                            </button>
+                            <button onClick={() => {
+                                setShowExtensionBanner(false);
+                                sessionStorage.setItem('ext_banner_dismissed', '1');
+                            }} style={{
+                                background: 'none', border: 'none', color: '#fbbf24',
+                                cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '0 4px'
+                            }}>✕</button>
+                        </div>
+                    )}
+                    {children}
+                </main>
+            </div>
 
             {/* Extension Installation Guide Modal */}
             {showExtensionGuide && (
