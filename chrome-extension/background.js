@@ -894,6 +894,41 @@ function parseBlocks(content) {
 // 프론트 에디터 툴바의 폰트 크기 드롭다운(execCommand fontSize 레벨 1~7)과 동일한 px 매핑.
 const FONT_SIZE_LEVEL_PX = { '2': 13, '3': 15, '4': 17, '5': 19, '6': 24, '7': 32 };
 
+// ── 네이버 스마트에디터 ONE 내부 폰트 클래스 매핑 ──
+// 네이버는 <font face> 태그 대신 <span class="se-ff-* se-fs* __se-node"> 형태의
+// CSS 클래스를 사용한다. document.execCommand로 만든 <font> 태그는 저장 시 무시되므로,
+// 반드시 이 클래스를 직접 달아줘야 실제 발행 후에도 폰트가 유지된다.
+const NAVER_FONT_FAMILY_MAP = {
+  // CSS font-family 값(우리 에디터) → Naver se-ff-* 클래스
+  'inherit':                       'se-ff-system',
+  'system':                        'se-ff-system',
+  "'Nanum Gothic', sans-serif":    'se-ff-nanumgothic',
+  'Nanum Gothic':                  'se-ff-nanumgothic',
+  'NanumGothic':                   'se-ff-nanumgothic',
+  "'Nanum Myeongjo', serif":       'se-ff-nanummyeongjo',
+  'Nanum Myeongjo':                'se-ff-nanummyeongjo',
+  'NanumMyeongjo':                 'se-ff-nanummyeongjo',
+  "'NanumBarunGothic', sans-serif":'se-ff-nanumbarungothic',
+  'NanumBarunGothic':              'se-ff-nanumbarungothic',
+  "'NanumSquare', sans-serif":     'se-ff-nanumsquare',
+  'NanumSquare':                   'se-ff-nanumsquare',
+  "'MaruBuri', serif":             'se-ff-maruburi',
+  'MaruBuri':                      'se-ff-maruburi',
+  "'Nanum Brush Script', cursive": 'se-ff-nanumbrushscript',
+  'Nanum Brush Script':            'se-ff-nanumbrushscript',
+  "'Nanum Pen Script', cursive":   'se-ff-nanumpenscript',
+  'Nanum Pen Script':              'se-ff-nanumpenscript',
+};
+// 폰트 크기 레벨 → Naver se-fs* 클래스
+const NAVER_FONT_SIZE_MAP = {
+  '2': 'se-fs13',   // 13px
+  '3': 'se-fs15',   // 15px
+  '4': 'se-fs17',   // 17px
+  '5': 'se-fs19',   // 19px
+  '6': 'se-fs24',   // 24px
+  '7': 'se-fs32',   // 32px
+};
+
 // ════════════════════════════════════════════════════════════
 //  에디터 자동화 헬퍼들
 // ════════════════════════════════════════════════════════════
@@ -2356,55 +2391,53 @@ async function runEditorAutomation(tabId, jobPayload) {
       await sendKey(tabId, 'Return', 'Enter', 13); // 인용구 뒤 1칸
       await sleep(150);
     } else if (block.type === 'font_size' || block.type === 'font_family') {
-      // ── 폰트 서식 적용 (execCommand 직접 사용) ──
-      // 네이버 스마트에디터 ONE의 툴바 드롭다운을 클릭하는 방식은 DOM 구조 변동에
-      // 취약하고, 드롭다운이 열렸다 닫히기만 하는 현상이 잦다. 대신 브라우저
-      // 표준 API인 document.execCommand를 에디터 iframe 안에서 직접 실행하면
-      // 100% 확실하게 선택된 텍스트에 서식을 적용할 수 있다.
-      //
-      // 순서: ① 텍스트 타이핑 → ② Selection API로 타이핑한 글자만 정확히 선택
-      //       → ③ execCommand('fontSize'|'fontName') 실행 → ④ 커서 맨 뒤로 이동
+      // ── 네이버 se-ff-*/se-fs* 클래스 기반 폰트 적용 ──
+      // 네이버 스마트에디터 ONE은 <font face> 태그나 execCommand를 무시하고,
+      // <span class="se-ff-maruburi se-fs19 __se-node">텍스트</span> 형태의
+      // 자체 CSS 클래스 시스템을 사용한다. 따라서 에디터 iframe의 DOM에
+      // 네이버 클래스가 달린 span을 직접 삽입해야 발행 후에도 폰트가 유지된다.
 
-      // ① 텍스트 타이핑
-      await typeViaDebugger(tabId, block.content);
-      await sleep(200);
-
-      // ② 방금 타이핑한 텍스트만 역방향 선택 (Selection.modify 반복)
-      const plainLen = block.content.replace(/\[B\]|\[\/B\]/gi, '').replace(/\n+/g, '').length;
-      await evalInEditor(tabId, eFid, (len) => {
-        const sel = window.getSelection();
-        if (!sel || !sel.rangeCount) return;
-        for (let i = 0; i < len; i++) {
-          sel.modify('extend', 'backward', 'character');
-        }
-      }, [plainLen]);
-      await sleep(150);
-
-      // ③ execCommand로 폰트 서식 적용
+      let naverClass = '';
       if (block.type === 'font_size') {
-        // execCommand fontSize는 레벨(1~7)을 받는다
-        await evalInEditor(tabId, eFid, (level) => {
-          document.execCommand('fontSize', false, level);
-        }, [block.level]);
-        console.log(`[FONT] execCommand fontSize level=${block.level} 적용 완료`);
+        naverClass = NAVER_FONT_SIZE_MAP[block.level] || `se-fs${FONT_SIZE_LEVEL_PX[block.level] || 15}`;
+        console.log(`[FONT] 크기 level=${block.level} → 네이버 클래스: ${naverClass}`);
       } else {
-        // font family: "'MaruBuri', serif" 같은 CSS 값에서 첫 번째 폰트명만 추출
-        let cssFamily = block.family;
-        // CSS fallback 제거하고 첫 번째 폰트명만 사용
-        const firstFont = cssFamily.split(',')[0].trim().replace(/^['"]|['"]$/g, '');
-        await evalInEditor(tabId, eFid, (family) => {
-          document.execCommand('fontName', false, family);
-        }, [firstFont]);
-        console.log(`[FONT] execCommand fontName="${firstFont}" 적용 완료 (원본: ${cssFamily})`);
+        // family 값에서 네이버 클래스 찾기 (정확히 일치 → 첫 번째 폰트명으로 재시도)
+        naverClass = NAVER_FONT_FAMILY_MAP[block.family];
+        if (!naverClass) {
+          const firstFont = block.family.split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+          naverClass = NAVER_FONT_FAMILY_MAP[firstFont];
+          if (!naverClass) {
+            // 최종 폴백: 폰트명을 소문자로 변환하여 se-ff-* 클래스 생성
+            naverClass = 'se-ff-' + firstFont.toLowerCase().replace(/\s+/g, '');
+          }
+        }
+        console.log(`[FONT] 서체 "${block.family}" → 네이버 클래스: ${naverClass}`);
       }
-      await sleep(150);
 
-      // ④ 선택 해제 후 커서를 줄 맨 뒤로 이동
-      await evalInEditor(tabId, eFid, () => {
+      // 에디터 iframe 안에서 현재 커서 위치에 네이버 클래스가 달린 span을 삽입
+      const plainText = block.content.replace(/\[B\]|\[\/B\]/gi, '').replace(/\n+/g, ' ');
+      await evalInEditor(tabId, eFid, (text, cls) => {
+        const span = document.createElement('span');
+        span.className = cls + ' __se-node';
+        span.textContent = text;
         const sel = window.getSelection();
-        if (sel) sel.collapseToEnd();
-      });
-      await sleep(100);
+        if (sel && sel.rangeCount) {
+          const range = sel.getRangeAt(0);
+          range.collapse(false); // 커서 끝으로
+          range.insertNode(span);
+          // 커서를 삽입한 span 뒤로 이동
+          range.setStartAfter(span);
+          range.setEndAfter(span);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        } else {
+          // Selection이 없으면 본문 마지막에 추가
+          const body = document.querySelector('.se-text-paragraph') || document.body;
+          body.appendChild(span);
+        }
+      }, [plainText, naverClass]);
+      await sleep(200);
     } else if (block.type === 'map' || block.type === 'cta_banner') {
       // business 블록 위치 — 푸터 시스템 전체 삽입 (Puppeteer 동일 로직)
       if (!footerInserted) {
