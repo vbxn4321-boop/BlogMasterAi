@@ -21,8 +21,7 @@ RUN apt-get update && apt-get install -y \
 
 # Set Puppeteer to use installed Chromium binary
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    PORT=3001
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 WORKDIR /app
 
@@ -32,6 +31,6 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 3001
+EXPOSE 4000
 
 CMD ["node", "engine_api.js"]
