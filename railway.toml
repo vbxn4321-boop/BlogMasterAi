@@ -1,8 +1,8 @@
 [build]
-builder = "nixpacks"
-buildCommand = "npm install --workspace=backend"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "node backend/engine_api.js"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+
