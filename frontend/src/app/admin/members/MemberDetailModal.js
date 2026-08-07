@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Modal, InlineAlert } from '@/components/ui';
-import { getMemberDetail, setCompanyPlan } from '@/lib/admin-member-actions';
+import { getMemberDetail, setCompanyPlan, updateMemberPlanType } from '@/lib/admin-member-actions';
 
 const PLAN_LABELS = { free: '무료', basic: '베이직', pro: '프로', company: '컴퍼니' };
 
@@ -19,6 +19,7 @@ export default function MemberDetailModal({ open, onClose, memberId, onChanged }
     const [showCompanyForm, setShowCompanyForm] = useState(false);
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
+    const [selectedPlan, setSelectedPlan] = useState('free');
 
     useEffect(() => {
         if (!open || !memberId) return;
@@ -29,6 +30,7 @@ export default function MemberDetailModal({ open, onClose, memberId, onChanged }
         getMemberDetail(memberId)
             .then(d => {
                 setDetail(d);
+                setSelectedPlan(d.plan_type || 'free');
                 setForm({
                     price: d.override_price ?? '',
                     max_naver_accounts: d.override_max_naver_accounts ?? '',
@@ -37,6 +39,21 @@ export default function MemberDetailModal({ open, onClose, memberId, onChanged }
             })
             .catch(err => setError(err.message));
     }, [open, memberId]);
+
+    const handlePlanChange = async (newPlan) => {
+        setSaving(true);
+        setSaveError('');
+        try {
+            await updateMemberPlanType(memberId, newPlan);
+            const refreshed = await getMemberDetail(memberId);
+            setDetail(refreshed);
+            setSelectedPlan(refreshed.plan_type);
+            onChanged?.();
+        } catch (err) {
+            setSaveError(err.message);
+        }
+        setSaving(false);
+    };
 
     const handleSaveCompany = async () => {
         setSaving(true);
@@ -74,6 +91,34 @@ export default function MemberDetailModal({ open, onClose, memberId, onChanged }
                         <div style={{ fontSize: 16, fontWeight: 700 }}>{detail.email}</div>
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
                             가입일 {formatDateTime(detail.created_at)} · <span className="badge">{PLAN_LABELS[detail.plan_type] || detail.plan_type}</span>
+                        </div>
+                    </div>
+
+                    {/* 요금제 직접 변경 (관리자 전용) */}
+                    <div style={{ marginBottom: 20, padding: 14, borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>회원 요금제 관리</div>
+                        {saveError && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>{saveError}</div>}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <select
+                                value={selectedPlan}
+                                onChange={e => setSelectedPlan(e.target.value)}
+                                disabled={saving}
+                                style={{ flex: 1, padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-card)', color: 'var(--text)' }}
+                            >
+                                <option value="free">무료 (FREE)</option>
+                                <option value="basic">베이직 (BASIC)</option>
+                                <option value="pro">프로 (PRO)</option>
+                                <option value="company">컴퍼니 (COMPANY)</option>
+                            </select>
+                            <button
+                                type="button"
+                                disabled={saving || selectedPlan === detail.plan_type}
+                                onClick={() => handlePlanChange(selectedPlan)}
+                                className="btn-primary"
+                                style={{ fontSize: 12, padding: '8px 14px' }}
+                            >
+                                {saving ? '보내는 중...' : '요금제 변경'}
+                            </button>
                         </div>
                     </div>
 

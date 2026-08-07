@@ -48,8 +48,6 @@ export async function getMemberDetail(userId) {
 }
 
 // free -> company 전환 또는 이미 company인 회원의 개별 설정 수정.
-// 3개 값 모두 필수 — 부분 설정을 허용하지 않는다(컴퍼니는 관리자가 계약 조건을 명확히
-// 정해야만 강제 결제 모달에 정확한 금액을 띄울 수 있기 때문).
 export async function setCompanyPlan(userId, { price, max_naver_accounts, max_prompts }) {
     await requireAdmin();
 
@@ -71,4 +69,28 @@ export async function setCompanyPlan(userId, { price, max_naver_accounts, max_pr
         })
         .eq('id', userId);
     if (error) throw new Error(toKoreanErrorMessage(error));
+}
+
+// 관리자 전용 회원 요금제 직접 변경 (free, basic, pro, company)
+export async function updateMemberPlanType(userId, planType) {
+    await requireAdmin();
+    if (!['free', 'basic', 'pro', 'company'].includes(planType)) {
+        throw new Error('올바른 요금제를 선택해 주세요.');
+    }
+    const { error } = await getSupabaseAdmin()
+        .from('profiles')
+        .update({
+            plan_type: planType,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+    if (error) throw new Error(toKoreanErrorMessage(error));
+
+    try {
+        await getSupabaseAdmin().auth.admin.updateUserById(userId, {
+            user_metadata: { plan: planType }
+        });
+    } catch (e) {
+        console.error('Auth metadata sync notice:', e);
+    }
 }
