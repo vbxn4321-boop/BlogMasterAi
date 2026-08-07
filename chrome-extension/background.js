@@ -1553,6 +1553,28 @@ async function applyFontFormatInTab(tabId, editorFrameId, kind, targetLabel) {
     return await evalInTab(tabId, fn, args);
   };
 
+  // CSS 폰트명 → 네이버 에디터 드롭다운 실제 한글 표시 명칭 매핑
+  const FONT_DISPLAY_MAP = {
+    'inherit': '기본서체',
+    'system': '기본서체',
+    'nanum gothic': '나눔고딕',
+    'nanumgothic': '나눔고딕',
+    'nanum myeongjo': '나눔명조',
+    'nanummyeongjo': '나눔명조',
+    'nanumbarungothic': '나눔바른고딕',
+    'nanumsquare': '나눔스퀘어',
+    'maruburi': '마루부리',
+    'maru buri': '마루부리',
+    'nanum brush script': '다시시작해',
+    'nanum pen script': '바른히피',
+  };
+
+  let exactText = targetLabel;
+  if (kind === 'family') {
+    const cleanLower = targetLabel.split(',')[0].trim().replace(/^['"]|['"]$/g, '').toLowerCase();
+    exactText = FONT_DISPLAY_MAP[cleanLower] || targetLabel;
+  }
+
   const triggerCoords = await findCoordsInAnyContext((k) => {
     const selectors = k === 'size'
       ? ['button[data-name="font-size"]', 'button[data-name="fontSize"]', '.se-font-size-code-toolbar-button', '[class*="fontSize"] button', '[class*="font_size"] button', '[data-name*="size"]']
@@ -1583,60 +1605,47 @@ async function applyFontFormatInTab(tabId, editorFrameId, kind, targetLabel) {
     return false;
   }
   await clickAtCoords(tabId, triggerCoords.x, triggerCoords.y);
-  await sleep(700);
+  await sleep(500);
 
   const optionCoords = await findCoordsInAnyContext((targetText, k) => {
-    const fontSynonyms = {
-      'nanum gothic': ['나눔고딕', '나눔 고딕', 'nanumgothic', 'nanum gothic'],
-      'nanumgothic': ['나눔고딕', '나눔 고딕', 'nanumgothic', 'nanum gothic'],
-      'nanum myeongjo': ['나눔명조', '나눔 명조', 'nanummyeongjo', 'nanum myeongjo'],
-      'nanummyeongjo': ['나눔명조', '나눔 명조', 'nanummyeongjo', 'nanum myeongjo'],
-      'nanum square': ['나눔스퀘어', '나눔 스퀘어', 'nanumsquare', 'nanum square'],
-      'nanumsquare': ['나눔스퀘어', '나눔 스퀘어', 'nanumsquare', 'nanum square'],
-      'nanum bareun gothic': ['나눔바른고딕', '나눔 바른고딕', 'nanum bareun gothic'],
-      'maru buri': ['마루부리', '마루 부리', 'maruburi', 'maru buri'],
-      'maruburi': ['마루부리', '마루 부리', 'maruburi', 'maru buri'],
-    };
-
-    const targetLower = targetText.toLowerCase().trim();
-    const allowed = fontSynonyms[targetLower] || [targetText];
-
-    const opts = document.querySelectorAll(
-      '.se-toolbar-option-label, [class*="option-label"], [class*="option_label"], .se-custom-select-option, [class*="select_option"], button.se-toolbar-option-button, li.se-toolbar-option-item, .se-popup-container button, .se-popup-container li, [class*="option"]'
-    );
+    const opts = Array.from(document.querySelectorAll(
+      '.se-toolbar-option-button, .se-toolbar-option-label, [class*="option-label"], [class*="option_label"], .se-custom-select-option, [class*="select_option"], li.se-toolbar-option-item, .se-popup-container button, .se-popup-container li'
+    ));
 
     for (const el of opts) {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
       const txt = el.textContent.trim();
-      const txtClean = txt.replace(/\s+/g, '').toLowerCase();
 
       if (k === 'size') {
         const numMatch = txt.match(/\d+/);
         if (numMatch && numMatch[0] === targetText.trim()) {
-          return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+          el.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+          const r2 = el.getBoundingClientRect();
+          return { x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2) };
         }
-      }
-
-      for (const cand of allowed) {
-        const candClean = cand.replace(/\s+/g, '').toLowerCase();
-        if (txtClean.includes(candClean) || candClean.includes(txtClean)) {
-          return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+      } else {
+        // 정확히 지정된 한글 폰트명과 일치하는 항목 선택 (예: '마루부리')
+        if (txt === targetText || txt.replace(/\s+/g, '') === targetText.replace(/\s+/g, '')) {
+          el.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+          const r2 = el.getBoundingClientRect();
+          return { x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2) };
         }
       }
     }
     return null;
-  }, [targetLabel, kind]);
+  }, [exactText, kind]);
 
   if (!optionCoords) {
-    console.warn(`[FONT] ${label} 옵션("${targetLabel}")을 찾지 못해 건너뜁니다.`);
+    console.warn(`[FONT] ${label} 옵션("${exactText}")을 찾지 못해 건너뜁니다.`);
     await sendKey(tabId, 'Escape', 'Escape', 27);
     return false;
   }
   await clickAtCoords(tabId, optionCoords.x, optionCoords.y);
-  await sleep(400);
-  console.log(`[FONT] ${label} "${targetLabel}" 성공적으로 선택됨!`);
+  await sleep(300);
+  console.log(`[FONT] ${label} "${exactText}" 선택 완료!`);
   return true;
+}
 }
 
 // 인용구 삽입 (6가지 스타일 전체 지원)
@@ -2391,53 +2400,25 @@ async function runEditorAutomation(tabId, jobPayload) {
       await sendKey(tabId, 'Return', 'Enter', 13); // 인용구 뒤 1칸
       await sleep(150);
     } else if (block.type === 'font_size' || block.type === 'font_family') {
-      // ── 네이버 se-ff-*/se-fs* 클래스 기반 폰트 적용 ──
-      // 네이버 스마트에디터 ONE은 <font face> 태그나 execCommand를 무시하고,
-      // <span class="se-ff-maruburi se-fs19 __se-node">텍스트</span> 형태의
-      // 자체 CSS 클래스 시스템을 사용한다. 따라서 에디터 iframe의 DOM에
-      // 네이버 클래스가 달린 span을 직접 삽입해야 발행 후에도 폰트가 유지된다.
+      const targetLabel = block.type === 'font_size'
+        ? String(FONT_SIZE_LEVEL_PX[block.level] || block.level)
+        : block.family;
 
-      let naverClass = '';
-      if (block.type === 'font_size') {
-        naverClass = NAVER_FONT_SIZE_MAP[block.level] || `se-fs${FONT_SIZE_LEVEL_PX[block.level] || 15}`;
-        console.log(`[FONT] 크기 level=${block.level} → 네이버 클래스: ${naverClass}`);
-      } else {
-        // family 값에서 네이버 클래스 찾기 (정확히 일치 → 첫 번째 폰트명으로 재시도)
-        naverClass = NAVER_FONT_FAMILY_MAP[block.family];
-        if (!naverClass) {
-          const firstFont = block.family.split(',')[0].trim().replace(/^['"]|['"]$/g, '');
-          naverClass = NAVER_FONT_FAMILY_MAP[firstFont];
-          if (!naverClass) {
-            // 최종 폴백: 폰트명을 소문자로 변환하여 se-ff-* 클래스 생성
-            naverClass = 'se-ff-' + firstFont.toLowerCase().replace(/\s+/g, '');
-          }
-        }
-        console.log(`[FONT] 서체 "${block.family}" → 네이버 클래스: ${naverClass}`);
-      }
+      // 1. 텍스트를 먼저 디버거로 타이핑 (중복 텍스트 발생 차단)
+      await typeViaDebugger(tabId, block.content);
+      await sleep(150);
 
-      // 에디터 iframe 안에서 현재 커서 위치에 네이버 클래스가 달린 span을 삽입
-      const plainText = block.content.replace(/\[B\]|\[\/B\]/gi, '').replace(/\n+/g, ' ');
-      await evalInEditor(tabId, eFid, (text, cls) => {
-        const span = document.createElement('span');
-        span.className = cls + ' __se-node';
-        span.textContent = text;
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount) {
-          const range = sel.getRangeAt(0);
-          range.collapse(false); // 커서 끝으로
-          range.insertNode(span);
-          // 커서를 삽입한 span 뒤로 이동
-          range.setStartAfter(span);
-          range.setEndAfter(span);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        } else {
-          // Selection이 없으면 본문 마지막에 추가
-          const body = document.querySelector('.se-text-paragraph') || document.body;
-          body.appendChild(span);
-        }
-      }, [plainText, naverClass]);
+      // 2. 타이핑된 텍스트 선택 (Shift + Home)
+      await sendKey(tabId, 'Home', 'Home', 36, 8);
       await sleep(200);
+
+      // 3. 네이버 에디터 툴바에서 정확한 폰트/크기 옵션 클릭
+      await applyFontFormatInTab(tabId, eFid, block.type === 'font_size' ? 'size' : 'family', targetLabel);
+      await sleep(200);
+
+      // 4. 선택 해제 및 커서를 문장 맨 끝으로 이동 (End)
+      await sendKey(tabId, 'End', 'End', 35);
+      await sleep(150);
     } else if (block.type === 'map' || block.type === 'cta_banner') {
       // business 블록 위치 — 푸터 시스템 전체 삽입 (Puppeteer 동일 로직)
       if (!footerInserted) {
