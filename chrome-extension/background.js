@@ -1079,19 +1079,6 @@ async function clickAiUsageToggle(tabId) {
 }
 
 async function uploadImageInTab(tabId, imageUrl, link = null, isAiGenerated = false) {
-  // 0. 사전 검증: HTTP URL이 유효하고 실제 이미지 바이트를 반환하는지 HEAD 요청으로 사전 검사
-  // (404 JSON 에러 응답을 chrome.downloads가 받아 .json 파일로 만드는 문제 차단)
-  try {
-    const headResp = await fetch(imageUrl, { method: 'HEAD' });
-    const cType = (headResp.headers.get('content-type') || '').toLowerCase();
-    if (!headResp.ok || cType.includes('json') || cType.includes('text/html')) {
-      console.warn(`[IMG] 이미지 URL 접근 실패 (HTTP ${headResp.status}, Content-Type: ${cType}) — 업로드를 건너뜁니다: ${imageUrl}`);
-      return false;
-    }
-  } catch (e) {
-    console.warn('[IMG] 이미지 URL 사전 검사 실패:', e.message);
-  }
-
   // 1. 이미지를 로컬 임시 파일로 다운로드 (로컬 경로 획득)
   let downloadId;
   try {
@@ -1136,16 +1123,14 @@ async function uploadImageInTab(tabId, imageUrl, link = null, isAiGenerated = fa
     console.warn('[IMG] Image download failed or timed out');
     return false;
   }
-  // 서버가 이미지 파일을 찾지 못하면 JSON 에러 응답(예: {"error":"Image file missing"})을
-  // 내려주는데, chrome.downloads는 그 바이트를 그대로 "다운로드 성공"으로 받아버린다 —
-  // 실제로는 이미지가 아니므로 mime 타입을 확인해 걸러내지 않으면 이 깨진 파일을 그대로
-  // 네이버에 업로드 시도하게 된다.
-  if (downloadedItem.mime && !downloadedItem.mime.startsWith('image/')) {
-    console.warn(`[IMG] 다운로드된 파일이 이미지가 아닙니다 (mime: ${downloadedItem.mime}) — 서버에서 이미지를 못 찾은 것으로 보입니다. 건너뜁니다.`);
+  // 실제 이미지는 수십 KB~수 MB 수준(fileSize > 500 bytes)입니다.
+  // 404 JSON 에러 응답(약 30~50 bytes)인 경우 업로드를 방지하고 건너뜁니다.
+  if (downloadedItem.fileSize && downloadedItem.fileSize < 500) {
+    console.warn(`[IMG] 다운로드된 파일 용량이 너무 작습니다 (${downloadedItem.fileSize} bytes) — 깨진 이미지/에러 응답으로 간주하여 건너뜁니다.`);
     chrome.downloads.removeFile(downloadId, () => {});
     return false;
   }
-  console.warn('[IMG] Downloaded to:', localPath);
+  console.warn('[IMG] Downloaded to:', localPath, `(size: ${downloadedItem.fileSize || 'unknown'} bytes)`);
 
   const editorFid = await findEditorFrameId(tabId);
 
@@ -2370,8 +2355,19 @@ async function runEditorAutomation(tabId, jobPayload) {
       const targetLabel = block.type === 'font_size'
         ? String(FONT_SIZE_LEVEL_PX[block.level] || block.level)
         : block.family;
-      await applyFontFormatInTab(tabId, eFid, block.type === 'font_size' ? 'size' : 'family', targetLabel);
+      // 네이버 스마트에디터 ONE 서식 적용 순서:
+      // 1) 텍스트 먼저 타이핑
       await typeViaDebugger(tabId, block.content);
+      await sleep(150);
+      // 2) 타이핑된 해당 문장 전체 선택 (Shift + Home)
+      await sendKey(tabId, 'Home', 'Home', 36, 8);
+      await sleep(200);
+      // 3) 선택 영역에 폰트 크기/서체 적용
+      await applyFontFormatInTab(tabId, eFid, block.type === 'font_size' ? 'size' : 'family', targetLabel);
+      await sleep(200);
+      // 4) 선택 해제 후 커서를 문장 맨 뒤로 이동 (End)
+      await sendKey(tabId, 'End', 'End', 35);
+      await sleep(150);
     } else if (block.type === 'map' || block.type === 'cta_banner') {
       // business 블록 위치 — 푸터 시스템 전체 삽입 (Puppeteer 동일 로직)
       if (!footerInserted) {
