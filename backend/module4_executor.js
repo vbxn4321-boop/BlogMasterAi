@@ -10,6 +10,10 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
+// 프론트 에디터 툴바의 폰트 크기 드롭다운(execCommand fontSize 레벨 1~7)과 동일한 px 매핑.
+// 네이버 실제 에디터의 폰트 크기 팝업도 이 값들을 옵션으로 제공하는 것으로 확인됨(19 확인됨).
+const FONT_SIZE_LEVEL_PX = { '2': 13, '3': 15, '4': 17, '5': 19, '6': 24, '7': 32 };
+
 function downloadToTemp(url) {
     return new Promise((resolve) => {
         const ext = url.split('?')[0].split('.').pop().split('/').pop() || 'jpg';
@@ -463,6 +467,14 @@ class ExecutionAgent {
                     await this.page.keyboard.up('Control');
                     await utils.randomDelay(100, 200);
                 }
+            } else if (block.type === 'font_size') {
+                await typeText(block.content);
+                await this._selectBackward(block.content.length);
+                await this._applyFontFormat(frame, 'size', String(FONT_SIZE_LEVEL_PX[block.level] || block.level));
+            } else if (block.type === 'font_family') {
+                await typeText(block.content);
+                await this._selectBackward(block.content.length);
+                await this._applyFontFormat(frame, 'family', block.family);
             } else if (block.type === 'image') {
                 const localPath = (assetReport.images && assetReport.images[block.id - 1]) ||
                     (assetReport.details && assetReport.details[block.id - 1]?.path);
@@ -1946,6 +1958,78 @@ class ExecutionAgent {
         }
     }
 
+    // 방금 타이핑한 텍스트를 Shift+ArrowLeft로 뒤로 선택 (볼드 적용과 동일한 방식)
+    async _selectBackward(length) {
+        await this.page.keyboard.down('Shift');
+        for (let i = 0; i < length; i++) {
+            await this.page.keyboard.press('ArrowLeft');
+            await utils.randomDelay(10, 30);
+        }
+        await this.page.keyboard.up('Shift');
+        await utils.randomDelay(200, 300);
+    }
+
+    // 폰트 크기/서체 적용 — 네이버 에디터 실제 툴바 구조 확인 결과:
+    //   크기 버튼: button[data-name="font-size"] (클래스 se-font-size-code-toolbar-button)
+    //   서체 버튼은 동일 계열(data-type="label-select")로 추정되나 정확한 셀렉터가 확인되지 않아
+    //   라벨 텍스트(se-toolbar-label, 현재 선택된 폰트명 표시)로 찾는 방식을 함께 사용한다.
+    //   두 버튼 모두 클릭하면 옵션 목록 팝업이 열리고, 각 항목은 .se-toolbar-option-label에
+    //   표시 텍스트(크기 숫자 또는 폰트명)를 담고 있다 — 이 텍스트로 원하는 항목을 찾아 클릭한다.
+    // 셀렉터를 못 찾거나 옵션이 없으면 조용히 건너뛰고(발행 자체는 계속 진행), 콘솔에 로그만 남긴다.
+    async _applyFontFormat(frame, kind, targetLabel) {
+        try {
+            const triggerSelectors = kind === 'size'
+                ? ['button[data-name="font-size"]', '.se-font-size-code-toolbar-button']
+                : ['button[data-name="font-family"]', 'button[data-name="font"]', '.se-font-family-code-toolbar-button'];
+
+            let btn = null;
+            for (const sel of triggerSelectors) {
+                btn = await frame.$(sel).catch(() => null);
+                if (btn) break;
+            }
+            if (!btn && kind === 'family') {
+                // 폴백: data-type="label-select" 버튼들 중 현재 라벨이 알려진 폰트명과 일치하는 것을 탐색
+                const handle = await frame.evaluateHandle(() => {
+                    const candidates = document.querySelectorAll('button[data-type="label-select"]');
+                    const knownFonts = ['기본서체', '나눔고딕', '나눔명조', '나눔바른고딕', '나눔스퀘어', '마루부리', '다시시작해', '바른히피', '우리딸손글씨'];
+                    for (const el of candidates) {
+                        const label = el.querySelector('.se-toolbar-label');
+                        if (label && knownFonts.includes(label.textContent.trim())) return el;
+                    }
+                    return null;
+                });
+                btn = await handle.asElement();
+            }
+            if (!btn) {
+                console.log(`[Module 4] 폰트 ${kind === 'size' ? '크기' : '서체'} 버튼을 찾지 못해 건너뜁니다.`);
+                return;
+            }
+
+            await btn.click();
+            await utils.randomDelay(500, 800);
+
+            const optionHandle = await frame.evaluateHandle((label) => {
+                const opts = document.querySelectorAll('.se-toolbar-option-label');
+                for (const el of opts) {
+                    const r = el.getBoundingClientRect();
+                    if (r.width > 0 && el.textContent.trim() === label) return el;
+                }
+                return null;
+            }, targetLabel);
+            const optionEl = await optionHandle.asElement();
+
+            if (optionEl) {
+                await optionEl.click();
+                await utils.randomDelay(300, 500);
+            } else {
+                console.log(`[Module 4] 폰트 ${kind === 'size' ? '크기' : '서체'} 옵션("${targetLabel}")을 찾지 못해 건너뜁니다.`);
+                await this.page.keyboard.press('Escape').catch(() => {});
+            }
+        } catch (e) {
+            console.warn(`[Module 4] 폰트 ${kind === 'size' ? '크기' : '서체'} 적용 실패(건너뜀): ${e.message}`);
+        }
+    }
+
     async _insertQuote(frame, block, typeText, pressEnter) {
         const quoteBtn = await frame.$('.se-insert-quotation-default-toolbar-button, button[class*="quotation"]');
         if (!quoteBtn) return;
@@ -2170,7 +2254,9 @@ class ExecutionAgent {
 
     _parseBlocks(content, assetReport, businessData = {}) {
         const tokens = [];
-        let remaining = content;
+        // [DIVIDER]...[/DIVIDER] — 실제 네이버 구분선 UI 자동화가 아직 없어, 인용구로 위장하지
+        // 않고 구분선 기호를 그대로 일반 텍스트 줄로 타이핑한다 (미리보기와 동일하게 항상 동작).
+        let remaining = content.replace(/\[DIVIDER\]([\s\S]*?)\[\/DIVIDER\]/gi, '$1');
         while (remaining.length > 0) {
             const vMatch = remaining.match(/\[QUOTE_?VERTICAL\]/i);
             const vi = vMatch ? vMatch.index : -1;
@@ -2193,6 +2279,10 @@ class ExecutionAgent {
             // 삽입하지 못한다 — 대괄호가 그대로 텍스트로 노출되는 것보다는 조용히 제거한다.
             const stMatch = remaining.match(/\[STICKER_[\w-]+\]/i);
             const sti = stMatch ? stMatch.index : -1;
+            const fsMatch = remaining.match(/\[FS_(\d)\]/i);
+            const fsi = fsMatch ? fsMatch.index : -1;
+            const ffMatch = remaining.match(/\[FF_([^\]]*)\]/i);
+            const ffi = ffMatch ? ffMatch.index : -1;
 
             const matches = [
                 { type: 'quote_vertical', index: vi, match: vMatch },
@@ -2205,7 +2295,9 @@ class ExecutionAgent {
                 { type: 'bold', index: bi },
                 { type: 'map', index: mi, regex: /\[BUSINESS_?MAP_?BLOCK\]/i },
                 { type: 'cta_banner', index: ci, regex: /\[BUSINESS_?CTA_?BANNER\]/i },
-                { type: 'sticker', index: sti, match: stMatch }
+                { type: 'sticker', index: sti, match: stMatch },
+                { type: 'font_size', index: fsi, match: fsMatch },
+                { type: 'font_family', index: ffi, match: ffMatch }
             ].filter(m => m.index !== -1).sort((a, b) => a.index - b.index);
 
             if (matches.length === 0) {
@@ -2267,6 +2359,28 @@ class ExecutionAgent {
             } else if (first.type === 'sticker') {
                 console.log(`[Module 4] Skipping unsupported sticker tag: ${first.match[0]}`);
                 remaining = remaining.substring(first.match[0].length);
+            } else if (first.type === 'font_size') {
+                const eMatch = remaining.substring(first.match[0].length).match(/\[\/FS\]/i);
+                if (eMatch) {
+                    const eIdx = first.match[0].length + eMatch.index;
+                    const inner = remaining.substring(first.match[0].length, eIdx).replace(/\[\/?B\]/gi, '');
+                    tokens.push({ type: 'font_size', level: first.match[1], content: inner });
+                    remaining = remaining.substring(eIdx + eMatch[0].length);
+                } else {
+                    remaining = remaining.substring(first.match[0].length);
+                }
+            } else if (first.type === 'font_family') {
+                const eMatch = remaining.substring(first.match[0].length).match(/\[\/FF\]/i);
+                if (eMatch) {
+                    const eIdx = first.match[0].length + eMatch.index;
+                    const inner = remaining.substring(first.match[0].length, eIdx).replace(/\[\/?B\]/gi, '');
+                    let family = first.match[1];
+                    try { family = decodeURIComponent(family); } catch (_) { /* keep raw */ }
+                    tokens.push({ type: 'font_family', family, content: inner });
+                    remaining = remaining.substring(eIdx + eMatch[0].length);
+                } else {
+                    remaining = remaining.substring(first.match[0].length);
+                }
             }
         }
         return tokens;

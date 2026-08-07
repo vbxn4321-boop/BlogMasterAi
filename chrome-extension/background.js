@@ -757,7 +757,10 @@ function parseBlocks(content) {
     .replace(/\[\s*<?\/?\\?\s*B\s*>?\s*\]/gi, '[B]')
     .replace(/\[B\]([^\[\]]{1,50}?)\[B\]/gi, '[B]$1[/B]')
     .replace(/\[IMAGE_?ANCHOR_?(\d+)\]/gi, '[IMAGE_ANCHOR_$1]')
-    .replace(/\[\/?(QUOTEANCHOR\d*|IMAGEQUOTE\d*|QUOTEIMAGE\d*)\]/gi, '');
+    .replace(/\[\/?(QUOTEANCHOR\d*|IMAGEQUOTE\d*|QUOTEIMAGE\d*)\]/gi, '')
+    // [DIVIDER]...[/DIVIDER] — 실제 네이버 구분선 UI 자동화가 아직 없어, 인용구로 위장하지
+    // 않고 구분선 기호를 그대로 일반 텍스트 줄로 타이핑한다 (미리보기와 동일하게 항상 동작).
+    .replace(/\[DIVIDER\]([\s\S]*?)\[\/DIVIDER\]/gi, '$1');
   // AI가 프롬프트 지시를 어기고 마크다운 불릿(줄 앞 *, - )으로 목록을 쓴 경우, 그대로 타이핑하면
   // "*"만 단독 줄에 남는 등 어색하게 노출되므로 굵은 점(•)으로 치환해 최소한 목록처럼 보이게 한다.
   remaining = remaining.replace(/^[ \t]*[*-][ \t]+/gm, '• ');
@@ -779,6 +782,8 @@ function parseBlocks(content) {
     const imageMatch = remaining.match(/\[IMAGE_?ANCHOR_?(?:\s*)(\d+)\]/i);
     const mapMatch   = remaining.match(/\[BUSINESS_?MAP_?BLOCK\]/i);
     const ctaMatch   = remaining.match(/\[BUSINESS_?CTA_?BANNER\]/i);
+    const fsMatch    = remaining.match(/\[FS_(\d)\]/i);
+    const ffMatch    = remaining.match(/\[FF_([^\]]*)\]/i);
 
     const candidates = [
       vMatch  && { type: 'quote_vertical',       index: vMatch.index,  match: vMatch },
@@ -790,6 +795,8 @@ function parseBlocks(content) {
       imageMatch && { type: 'image',              index: imageMatch.index, match: imageMatch },
       mapMatch   && { type: 'map',                index: mapMatch.index,   match: mapMatch },
       ctaMatch   && { type: 'cta_banner',         index: ctaMatch.index,   match: ctaMatch },
+      fsMatch    && { type: 'font_size',          index: fsMatch.index,   match: fsMatch },
+      ffMatch    && { type: 'font_family',        index: ffMatch.index,   match: ffMatch },
     ].filter(Boolean).sort((a, b) => a.index - b.index);
 
     if (candidates.length === 0) {
@@ -830,10 +837,35 @@ function parseBlocks(content) {
     } else if (first.type === 'map' || first.type === 'cta_banner') {
       tokens.push({ type: first.type });
       remaining = remaining.substring(first.match[0].length).replace(/^\n+/, '');
+    } else if (first.type === 'font_size') {
+      const eMatch = remaining.substring(first.match[0].length).match(/\[\/FS\]/i);
+      if (eMatch) {
+        const eIdx = first.match[0].length + eMatch.index;
+        const content = remaining.substring(first.match[0].length, eIdx).replace(/\[\/?B\]/gi, '');
+        tokens.push({ type: 'font_size', level: first.match[1], content });
+        remaining = remaining.substring(eIdx + eMatch[0].length);
+      } else {
+        remaining = remaining.substring(first.match[0].length);
+      }
+    } else if (first.type === 'font_family') {
+      const eMatch = remaining.substring(first.match[0].length).match(/\[\/FF\]/i);
+      if (eMatch) {
+        const eIdx = first.match[0].length + eMatch.index;
+        const content = remaining.substring(first.match[0].length, eIdx).replace(/\[\/?B\]/gi, '');
+        let family = first.match[1];
+        try { family = decodeURIComponent(family); } catch (_) { /* keep raw */ }
+        tokens.push({ type: 'font_family', family, content });
+        remaining = remaining.substring(eIdx + eMatch[0].length);
+      } else {
+        remaining = remaining.substring(first.match[0].length);
+      }
     }
   }
   return tokens;
 }
+
+// 프론트 에디터 툴바의 폰트 크기 드롭다운(execCommand fontSize 레벨 1~7)과 동일한 px 매핑.
+const FONT_SIZE_LEVEL_PX = { '2': 13, '3': 15, '4': 17, '5': 19, '6': 24, '7': 32 };
 
 // ════════════════════════════════════════════════════════════
 //  에디터 자동화 헬퍼들
@@ -1423,6 +1455,70 @@ async function uploadVideoInTab(tabId, editorFrameId, videoUrl) {
   }
 
   chrome.downloads.removeFile(downloadId, () => {});
+  return true;
+}
+
+// 폰트 크기/서체 적용 — 네이버 에디터 실제 툴바에서 확인된 구조:
+//   크기 트리거 버튼: button[data-name="font-size"] (클래스 se-font-size-code-toolbar-button)
+//   서체 트리거 버튼은 정확한 셀렉터가 확인되지 않아, 동일 계열(data-type="label-select") 버튼 중
+//   현재 라벨이 알려진 폰트명과 일치하는 것을 찾는 방식을 폴백으로 함께 쓴다.
+//   두 버튼 모두 클릭하면 옵션 팝업이 열리고, 각 항목은 .se-toolbar-option-label에 표시 텍스트
+//   (크기 숫자 또는 폰트명)를 담고 있어 이 텍스트로 원하는 항목을 찾아 클릭한다.
+//   이 함수는 "다음에 타이핑될 글자에 적용될 서식을 활성화"하는 것이므로, 호출 직후 바로
+//   typeViaDebugger로 타이핑해야 한다 (인용구 스타일 선택 후 타이핑하는 것과 동일한 방식).
+//   버튼/옵션을 못 찾으면 조용히 건너뛴다 — 발행 자체가 이 때문에 중단되지는 않는다.
+async function applyFontFormatInTab(tabId, editorFrameId, kind, targetLabel) {
+  const label = kind === 'size' ? '크기' : '서체';
+  const findCoordsInAnyContext = async (fn, args = []) => {
+    const inFrame = await getAbsoluteCoords(tabId, editorFrameId, fn, args);
+    if (inFrame) return inFrame;
+    return await evalInTab(tabId, fn, args);
+  };
+
+  const triggerCoords = await findCoordsInAnyContext((k) => {
+    const selectors = k === 'size'
+      ? ['button[data-name="font-size"]', '.se-font-size-code-toolbar-button']
+      : ['button[data-name="font-family"]', 'button[data-name="font"]', '.se-font-family-code-toolbar-button'];
+    let btn = null;
+    for (const sel of selectors) { btn = document.querySelector(sel); if (btn) break; }
+    if (!btn && k === 'family') {
+      const knownFonts = ['기본서체', '나눔고딕', '나눔명조', '나눔바른고딕', '나눔스퀘어', '마루부리', '다시시작해', '바른히피', '우리딸손글씨'];
+      btn = Array.from(document.querySelectorAll('button[data-type="label-select"]')).find(b => {
+        const lbl = b.querySelector('.se-toolbar-label');
+        return lbl && knownFonts.includes(lbl.textContent.trim());
+      });
+    }
+    if (!btn || btn.offsetWidth === 0) return null;
+    btn.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+    const r = btn.getBoundingClientRect();
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+  }, [kind]);
+
+  if (!triggerCoords) {
+    console.warn(`[FONT] ${label} 버튼을 찾지 못해 건너뜁니다.`);
+    return false;
+  }
+  await clickAtCoords(tabId, triggerCoords.x, triggerCoords.y);
+  await sleep(700);
+
+  const optionCoords = await findCoordsInAnyContext((targetText) => {
+    const opts = document.querySelectorAll('.se-toolbar-option-label');
+    for (const el of opts) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && el.textContent.trim() === targetText) {
+        return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+      }
+    }
+    return null;
+  }, [targetLabel]);
+
+  if (!optionCoords) {
+    console.warn(`[FONT] ${label} 옵션("${targetLabel}")을 찾지 못해 건너뜁니다.`);
+    await sendKey(tabId, 'Escape', 'Escape', 27);
+    return false;
+  }
+  await clickAtCoords(tabId, optionCoords.x, optionCoords.y);
+  await sleep(400);
   return true;
 }
 
@@ -2179,6 +2275,12 @@ async function runEditorAutomation(tabId, jobPayload) {
       await insertQuoteInTab(tabId, eFid, block.type, block.content);
       await sendKey(tabId, 'Return', 'Enter', 13); // 인용구 뒤 1칸
       await sleep(150);
+    } else if (block.type === 'font_size' || block.type === 'font_family') {
+      const targetLabel = block.type === 'font_size'
+        ? String(FONT_SIZE_LEVEL_PX[block.level] || block.level)
+        : block.family;
+      await applyFontFormatInTab(tabId, eFid, block.type === 'font_size' ? 'size' : 'family', targetLabel);
+      await typeViaDebugger(tabId, block.content);
     } else if (block.type === 'map' || block.type === 'cta_banner') {
       // business 블록 위치 — 푸터 시스템 전체 삽입 (Puppeteer 동일 로직)
       if (!footerInserted) {

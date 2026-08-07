@@ -1900,6 +1900,12 @@ async function prepareForExtension(post, extension_device_id, holdForApproval = 
     // 이미지를 Supabase Storage에 업로드 → 영구 HTTP URL 획득 (Railway 재배포 후에도 유효)
     await updateProgress(post.id, '이미지 업로드', '생성된 이미지를 저장하고 있습니다...', 78, '잠시만 기다려주세요...');
     const persistedImages = await uploadImagesToStorage(post.id, assetReport.images || []);
+    // 에디터에서 직접 업로드한 이미지/동영상을 해당 [IMAGE_ANCHOR_N] 번호 자리에 병합.
+    // custom_uploaded_images는 이미 Supabase Storage 공개 URL이라 재업로드가 필요 없고,
+    // AI가 채운 자리(selected_pexels_images/AI 생성)와 순서가 섞이지 않도록 인덱스로만 덮어쓴다.
+    (post.content_json?.custom_uploaded_images || []).forEach((url, idx) => {
+        if (url) persistedImages[idx] = url;
+    });
     extensionImageStore.set(post.id, persistedImages);
     // 24시간 후 자동 정리
     setTimeout(() => extensionImageStore.delete(post.id), 24 * 60 * 60 * 1000);

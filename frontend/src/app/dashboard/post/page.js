@@ -225,6 +225,9 @@ const QUOTE_RENDER = {
     },
 };
 const QUOTE_SOURCE_SPLIT = /\n출처:\s*([\s\S]*)$/;
+// 툴바 폰트 크기 드롭다운(execCommand fontSize 레벨 1~7)과 동일한 px 매핑.
+// markupToHtml 렌더링과 htmlToMarkup 역변환(px→레벨) 양쪽에서 공유한다.
+const FONT_SIZE_PX = { '2': 13, '3': 15, '4': 17, '5': 19, '6': 24, '7': 32 };
 
 function escapeHtml(str) {
     return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -240,6 +243,16 @@ function markupToHtml(body, customUploadedImages, imagePrompts) {
     html = html.replace(/\[B\]([\s\S]*?)\[\/B\]/gi, '<strong style="font-weight:650;color:#0f172a">$1</strong>');
     // Clean orphan stray [B] or [/B] tags
     html = html.replace(/\[\/?B\]/gi, '');
+    // [FS_n]...[/FS] → 폰트 크기, [FF_encoded]...[/FF] → 폰트 서체 (툴바에서 지정한 값을
+    // 미리보기 재렌더링 후에도 유지하기 위한 마크업 — htmlToMarkup에서 저장할 때 만들어진다)
+    html = html.replace(/\[FS_(\d)\]([\s\S]*?)\[\/FS\]/gi, (_, level, inner) =>
+        `<span style="font-size:${FONT_SIZE_PX[level] || 15}px">${inner}</span>`
+    );
+    html = html.replace(/\[FF_([^\]]*)\]([\s\S]*?)\[\/FF\]/gi, (_, encoded, inner) => {
+        let family = encoded;
+        try { family = decodeURIComponent(encoded); } catch (_) { /* keep raw */ }
+        return `<span style="font-family:${family}">${inner}</span>`;
+    });
     // [QUOTE_*]...[/QUOTE_*] → 실제 네이버 모양의 편집 가능한 인용구 블록
     for (const [qk, renderer] of Object.entries(QUOTE_RENDER)) {
         const re = new RegExp(`\\[${qk}\\]([\\s\\S]*?)\\[\\/${qk}\\]`, 'gi');
@@ -250,12 +263,22 @@ function markupToHtml(body, customUploadedImages, imagePrompts) {
             return renderer.wrap(mainText, sourceText);
         });
     }
-    // [IMAGE_ANCHOR_N] → image or placeholder
+    // [DIVIDER]...[/DIVIDER] → 가운데 정렬 구분선 (인용구 박스가 아닌, 실제 발행 시와 동일하게
+    // 그냥 기호 텍스트 한 줄로 보이는 형태)
+    html = html.replace(/\[DIVIDER\]([\s\S]*?)\[\/DIVIDER\]/gi, (_, sym) =>
+        `<div contenteditable="false" data-divider style="text-align:center;color:#94a3b8;letter-spacing:2px;font-size:15px;margin:28px 0;user-select:none;">${sym}</div>`
+    );
+    // [IMAGE_ANCHOR_N] → image/video or placeholder
     html = html.replace(/\[IMAGE_ANCHOR_(\d+)\]/gi, (_, num) => {
         const idx = parseInt(num, 10) - 1;
         const src = customUploadedImages && customUploadedImages[idx];
         if (src) {
-            return `<div contenteditable="false" data-image-anchor="${num}" style="margin:20px 0;text-align:center;"><img src="${src}" alt="이미지 ${num}" style="max-width:100%;max-height:400px;border-radius:10px;border:2px solid #00b894;box-shadow:0 6px 20px rgba(0,0,0,0.12);"/><div style="background:#00b894;color:#fff;display:inline-block;padding:3px 10px;border-radius:16px;font-size:11px;font-weight:700;margin-top:6px;">지정 이미지 ${num}</div></div>`;
+            const isVideo = /\.(mp4|mov|avi|webm)(\?|$)/i.test(src);
+            const mediaTag = isVideo
+                ? `<video src="${src}" controls style="max-width:100%;max-height:400px;border-radius:10px;border:2px solid #00b894;box-shadow:0 6px 20px rgba(0,0,0,0.12);"></video>`
+                : `<img src="${src}" alt="이미지 ${num}" style="max-width:100%;max-height:400px;border-radius:10px;border:2px solid #00b894;box-shadow:0 6px 20px rgba(0,0,0,0.12);"/>`;
+            const labelText = isVideo ? `지정 동영상 ${num}` : `지정 이미지 ${num}`;
+            return `<div contenteditable="false" data-image-anchor="${num}" style="margin:20px 0;text-align:center;">${mediaTag}<div style="background:#00b894;color:#fff;display:inline-block;padding:3px 10px;border-radius:16px;font-size:11px;font-weight:700;margin-top:6px;">${labelText}</div></div>`;
         }
         const prompt = imagePrompts && imagePrompts[idx];
         const promptHtml = prompt
@@ -288,6 +311,32 @@ function htmlToMarkup(html) {
     let text = html;
     // <strong>/<b> → [B]...[/B]
     text = text.replace(/<(?:strong|b)(?:\s[^>]*)?>([\s\S]*?)<\/(?:strong|b)>/gi, '[B]$1[/B]');
+    // <font size/face>(execCommand('fontSize'|'fontName')가 만드는 태그) 또는
+    // <span style="font-size/font-family">(markupToHtml이 재렌더링한 자기 자신) →
+    // [FS_n]/[FF_encoded] 마크업으로 보존. 크기 지정 후 다시 서체를 지정하는 식으로
+    // 중첩될 수 있어, 안쪽에 같은 종류의 태그가 없는 것부터(가장 안쪽부터) 반복 변환한다.
+    let fontTagsRemain = true;
+    while (fontTagsRemain) {
+        fontTagsRemain = false;
+        text = text.replace(/<(font|span)\s+([^>]*)>((?:(?!<(?:font|span)[\s>])[\s\S])*?)<\/\1>/gi, (whole, _tag, attrs, inner) => {
+            const sizeAttr = attrs.match(/size=["']?(\d)["']?/i);
+            const sizeStyle = attrs.match(/font-size:\s*(\d+)px/i);
+            // face/font-family 값 자체가 'Nanum Gothic' 처럼 작은따옴표를 포함할 수 있어(폰트 드롭다운의
+            // font 값 그대로 저장됨), 값 안의 작은따옴표에서 매칭이 끊기지 않도록 여는 따옴표 종류에 맞춰서만 닫는다.
+            const faceAttr = attrs.match(/face="([^"]*)"/i) || attrs.match(/face='([^']*)'/i);
+            const familyStyle = attrs.match(/font-family:\s*([^;"]+)/i);
+            if (!sizeAttr && !sizeStyle && !faceAttr && !familyStyle) return whole; // 폰트와 무관한 태그는 그대로 두고 나중에 일괄 제거
+            fontTagsRemain = true;
+            let out = inner;
+            const face = faceAttr ? faceAttr[1].trim() : (familyStyle ? familyStyle[1].trim() : null);
+            if (face) out = `[FF_${encodeURIComponent(face)}]${out}[/FF]`;
+            const level = sizeAttr
+                ? sizeAttr[1]
+                : (sizeStyle ? Object.keys(FONT_SIZE_PX).find(k => FONT_SIZE_PX[k] === parseInt(sizeStyle[1], 10)) : null);
+            if (level) out = `[FS_${level}]${out}[/FS]`;
+            return out;
+        });
+    }
     // 인용구, data-image-anchor 블록은 모두 안에 중첩 div를 포함할 수 있어 regex로 안전하게
     // 못 뽑아낸다 — syncEditorToState에서 DOM을 직접 순회해 [QUOTE_*]...[/QUOTE_*],
     // [IMAGE_ANCHOR_N] 플레이스홀더로 미리 치환해두므로 여기선 손대지 않는다.
@@ -299,6 +348,8 @@ function htmlToMarkup(html) {
     // data-block map/cta
     text = text.replace(/<div[^>]*data-block="map"[^>]*>[\s\S]*?<\/div>/gi, '[BUSINESS_MAP_BLOCK]');
     text = text.replace(/<div[^>]*data-block="cta"[^>]*>[\s\S]*?<\/div>/gi, '[BUSINESS_CTA_BANNER]');
+    // data-divider → [DIVIDER]...[/DIVIDER]
+    text = text.replace(/<div[^>]*data-divider[^>]*>([\s\S]*?)<\/div>/gi, '[DIVIDER]$1[/DIVIDER]');
     // <i>/<em> → keep as-is (plain text)
     text = text.replace(/<(?:em|i)(?:\s[^>]*)?>([\s\S]*?)<\/(?:em|i)>/gi, '$1');
     // <u> → keep
@@ -1053,6 +1104,21 @@ function NewPostContent() {
         editorSyncTimer.current = setTimeout(syncEditorToState, 300);
     }, [syncEditorToState]);
 
+    // 본문에 이미 존재하는 [IMAGE_ANCHOR_N] 중 가장 큰 번호 다음 번호를 반환한다.
+    // AI가 생성한 이미지도 [IMAGE_ANCHOR_1]..[IMAGE_ANCHOR_N]을 이미 쓰고 있으므로,
+    // custom_uploaded_images.length만으로 다음 번호를 정하면 AI 앵커와 번호가 충돌해
+    // 서로 다른 두 이미지가 같은 앵커를 가리키게 된다.
+    const nextImageAnchorNumber = (body) => {
+        let max = 0;
+        const re = /\[IMAGE_ANCHOR_(\d+)\]/gi;
+        let m;
+        while ((m = re.exec(body || '')) !== null) {
+            const n = parseInt(m[1], 10);
+            if (n > max) max = n;
+        }
+        return max + 1;
+    };
+
     const handleCustomPhotoUpload = async (e) => {
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
@@ -1082,11 +1148,11 @@ function NewPostContent() {
             setPreviews(prev => {
                 const next = [...prev];
                 if (next[activePreviewIdx]) {
-                    const currentImages = next[activePreviewIdx].custom_uploaded_images || [];
-                    const newImages = [...currentImages, fileUrl];
-                    const newIndex = newImages.length;
                     const currentBody = next[activePreviewIdx].body || '';
-                    const anchorTag = `\n[IMAGE_ANCHOR_${newIndex}]\n`;
+                    const anchorNum = nextImageAnchorNumber(currentBody);
+                    const newImages = [...(next[activePreviewIdx].custom_uploaded_images || [])];
+                    newImages[anchorNum - 1] = fileUrl;
+                    const anchorTag = `\n[IMAGE_ANCHOR_${anchorNum}]\n`;
                     next[activePreviewIdx] = {
                         ...next[activePreviewIdx],
                         custom_uploaded_images: newImages,
@@ -1135,11 +1201,11 @@ function NewPostContent() {
             setPreviews(prev => {
                 const next = [...prev];
                 if (next[activePreviewIdx]) {
-                    const currentImages = next[activePreviewIdx].custom_uploaded_images || [];
-                    const newImages = [...currentImages, fileUrl];
-                    const newIndex = newImages.length;
                     const currentBody = next[activePreviewIdx].body || '';
-                    const anchorTag = `\n[IMAGE_ANCHOR_${newIndex}]\n`;
+                    const anchorNum = nextImageAnchorNumber(currentBody);
+                    const newImages = [...(next[activePreviewIdx].custom_uploaded_images || [])];
+                    newImages[anchorNum - 1] = fileUrl;
+                    const anchorTag = `\n[IMAGE_ANCHOR_${anchorNum}]\n`;
                     next[activePreviewIdx] = {
                         ...next[activePreviewIdx],
                         custom_uploaded_images: newImages,
@@ -2016,12 +2082,13 @@ function NewPostContent() {
                 seo_guidelines: activePreviewData.seo_stats || activePreviewData.seo_guidelines || {},
                 data_asset: activePreviewData.data_asset || {},
                 image_source: imageSource,
-                // 사용자가 에디터에서 직접 업로드한 이미지가 있으면 최우선 반영, 없으면 무료 이미지(stock) 모드 URL 반영
-                selected_pexels_images: (activePreviewData.custom_uploaded_images && activePreviewData.custom_uploaded_images.length > 0)
-                    ? activePreviewData.custom_uploaded_images
-                    : (imageSource === 'stock'
-                        ? (activePreviewData.image_prompts || []).map((_, i) => selectedPexels[i]?.url || null).filter(Boolean)
-                        : undefined),
+                selected_pexels_images: imageSource === 'stock'
+                    ? (activePreviewData.image_prompts || []).map((_, i) => selectedPexels[i]?.url || null).filter(Boolean)
+                    : undefined,
+                // 에디터에서 직접 업로드한 이미지/동영상 — 앵커 번호([IMAGE_ANCHOR_N]) 기준의
+                // 희소 배열(구멍은 null)이라, AI가 생성한 이미지와 별도로 발행 단계에서
+                // 해당 앵커 번호에 그대로 병합된다 (selected_pexels_images의 순차 채움 로직과 섞이지 않음).
+                custom_uploaded_images: activePreviewData.custom_uploaded_images || undefined,
                 // image_reference 타입만 실제 이미지 경로를 저장 — url_reference의 기사 URL이 섞이지 않도록
                 reference_url: form.trigger_type === 'image_reference' ? (imageUrl || activePreviewData.reference_url || null) : null,
                 media_meta: activePreviewData.media_meta || null,
@@ -3918,7 +3985,7 @@ function NewPostContent() {
                                                                 key={idx}
                                                                 onMouseDown={e => e.preventDefault()}
                                                                 onClick={() => {
-                                                                    insertTextToBody(`\n[QUOTE_LINE_QUOTATION]${d.label}[/QUOTE_LINE_QUOTATION]\n`);
+                                                                    insertTextToBody(`\n[DIVIDER]${d.label}[/DIVIDER]\n`);
                                                                     setDividerDropdownOpen(false);
                                                                 }}
                                                                 style={{ padding: '12px', borderBottom: idx < 7 ? '1px solid #eee' : 'none', cursor: 'pointer', textAlign: 'center', color: '#555', fontSize: 13, fontWeight: 600 }}

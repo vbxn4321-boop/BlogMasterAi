@@ -468,14 +468,22 @@ ${footerText}
         content = content.replace(/###\s*\[?SEO_GUIDELINES\]?[\s\S]*$/i, '').trim();
 
         // QUOTE_VERTICAL 태그 안에 본문 내용(50자 초과 또는 줄바꿈 포함)이 들어온 경우 태그 제거
-        // AI가 소제목 대신 본문 문단을 인용구 태그로 감싸는 오류를 방지
+        // AI가 소제목 대신 본문 문단을 인용구 태그로 감싸는 오류를 방지.
+        // 단, "\n출처: xxx"로 끝나는 정상적인 출처 인용구는 본문(mainPart)만으로 50자를 판단해
+        // 태그가 벗겨지지 않도록 한다 — 그렇지 않으면 출처가 붙은 정상 인용구까지 태그가 제거되어
+        // "본문... 출처:xxx"가 그대로 평문 텍스트로 노출된다.
         content = content.replace(/\[QUOTE_?VERTICAL\]([\s\S]*?)\[\/QUOTE_?VERTICAL\]/gi, (_match, inner) => {
-            const singleLine = inner.replace(/\n+/g, ' ').trim();
-            if (singleLine.length > 50) {
-                // 소제목이 아닌 본문 내용 → 태그 제거하고 텍스트만 반환
-                return singleLine;
+            const sourceMatch = inner.match(/\n출처:\s*([\s\S]*)$/);
+            const mainPart = (sourceMatch ? inner.slice(0, sourceMatch.index) : inner).replace(/\n+/g, ' ').trim();
+            if (sourceMatch) {
+                const sourcePart = sourceMatch[1].replace(/\n+/g, ' ').trim();
+                return '[QUOTE_VERTICAL]' + mainPart + '\n출처: ' + sourcePart + '[/QUOTE_VERTICAL]';
             }
-            return '[QUOTE_VERTICAL]' + singleLine + '[/QUOTE_VERTICAL]';
+            if (mainPart.length > 50) {
+                // 소제목이 아닌 본문 내용 → 태그 제거하고 텍스트만 반환
+                return mainPart;
+            }
+            return '[QUOTE_VERTICAL]' + mainPart + '[/QUOTE_VERTICAL]';
         });
 
         // Ensure hashtags from keywords if missing
