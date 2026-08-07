@@ -1138,23 +1138,37 @@ async function uploadImageInTab(tabId, imageUrl, link = null, isAiGenerated = fa
   }
 
   const downloadedItem = await new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      chrome.downloads.onChanged.removeListener(dl);
-      resolve(null);
-    }, 30000);
-    function dl(delta) {
-      if (delta.id !== downloadId) return;
-      if (delta.state?.current === 'complete') {
-        chrome.downloads.onChanged.removeListener(dl);
-        clearTimeout(timer);
-        chrome.downloads.search({ id: downloadId }, ([item]) => resolve(item || null));
-      } else if (delta.state?.current === 'interrupted') {
-        chrome.downloads.onChanged.removeListener(dl);
-        clearTimeout(timer);
-        resolve(null);
+    // 1. 이미 완료되었는지 즉시 조회 (빠른 다운로드 레이스 컨디션 방지)
+    chrome.downloads.search({ id: downloadId }, ([item]) => {
+      if (item && item.state === 'complete') {
+        resolve(item);
+        return;
       }
-    }
-    chrome.downloads.onChanged.addListener(dl);
+      if (item && item.state === 'interrupted') {
+        resolve(null);
+        return;
+      }
+
+      // 2. 아직 진행 중이면 변경 리스너 대기
+      const timer = setTimeout(() => {
+        chrome.downloads.onChanged.removeListener(dl);
+        resolve(null);
+      }, 15000);
+
+      function dl(delta) {
+        if (delta.id !== downloadId) return;
+        if (delta.state?.current === 'complete') {
+          chrome.downloads.onChanged.removeListener(dl);
+          clearTimeout(timer);
+          chrome.downloads.search({ id: downloadId }, ([item]) => resolve(item || null));
+        } else if (delta.state?.current === 'interrupted') {
+          chrome.downloads.onChanged.removeListener(dl);
+          clearTimeout(timer);
+          resolve(null);
+        }
+      }
+      chrome.downloads.onChanged.addListener(dl);
+    });
   });
 
   const localPath = downloadedItem?.filename || null;
@@ -2375,13 +2389,19 @@ async function runEditorAutomation(tabId, jobPayload) {
   const blocks = parseBlocks((content || '').replace(/^\n+/, ''));
   let footerInserted = false;
 
+  // 전체 글의 기본 폰트(마루부리 등)가 있으면 본문 시작 시 툴바에서 1회 전체 적용
+  const primaryFont = blocks.find(b => b.type === 'font_family')?.family || null;
+  if (primaryFont) {
+    console.log('[AUTOMATION] 글 전체 기본 폰트 설정:', primaryFont);
+    await applyFontFormatInTab(tabId, eFid, 'family', primaryFont);
+    await sleep(300);
+    if (bodyCoords) await clickAtCoords(tabId, bodyCoords.x, bodyCoords.y);
+    await sleep(200);
+  }
+
   for (let blockIdx = 0; blockIdx < blocks.length; blockIdx++) {
     const block = blocks[blockIdx];
     if (block.type === 'text') {
-      // 포커스 복구 실패를 무시하고 계속 진행하면, 이후 모든 블록이 어디로
-      // 타이핑되는지 모르는 상태로 조용히 실패만 반복하며 진행이 멈춘 것처럼
-      // 보이게 된다 (사용자가 결국 수동 취소하게 됨). 한 번 더 재시도 후에도
-      // 실패하면 여기서 바로 명확한 에러로 중단한다.
       let focused = await ensureBodyFocus(tabId, eFid);
       if (!focused) {
         if (bodyCoords) await clickAtCoords(tabId, bodyCoords.x, bodyCoords.y);
@@ -2403,8 +2423,6 @@ async function runEditorAutomation(tabId, jobPayload) {
       const imgUrl = imageUrls[block.id - 1];
       const imgLink = business?.image_links?.[block.id] || business?.image_links?.[`anchor${block.id}`] || null;
       const isAiImg = aiGeneratedIndices.includes(block.id - 1);
-      // 업로드된 파일 URL의 확장자로 동영상/이미지를 구분한다 (module4_executor.js의
-      // isVideo 판별 방식과 동일 — 확장자만으로 충분히 안정적으로 구분 가능).
       const isVideoUrl = imgUrl && /\.(mp4|mov|avi|webm)(\?|$)/i.test(imgUrl);
       if (imgUrl && isVideoUrl) await uploadVideoInTab(tabId, eFid, imgUrl);
       else if (imgUrl) await uploadImageInTab(tabId, imgUrl, imgLink, isAiImg);
@@ -2414,24 +2432,8 @@ async function runEditorAutomation(tabId, jobPayload) {
       await sendKey(tabId, 'Return', 'Enter', 13); // 인용구 뒤 1칸
       await sleep(150);
     } else if (block.type === 'font_size' || block.type === 'font_family') {
-      const targetLabel = block.type === 'font_size'
-        ? String(FONT_SIZE_LEVEL_PX[block.level] || block.level)
-        : block.family;
-
-      // 1. 텍스트를 먼저 디버거로 타이핑 (중복 텍스트 발생 차단)
+      // 폰트 블록도 텍스트 누락이나 삭제 없이 온전하게 전체 타이핑
       await typeViaDebugger(tabId, block.content);
-      await sleep(150);
-
-      // 2. 타이핑된 텍스트 선택 (Shift + Home)
-      await sendKey(tabId, 'Home', 'Home', 36, 8);
-      await sleep(200);
-
-      // 3. 네이버 에디터 툴바에서 정확한 폰트/크기 옵션 클릭
-      await applyFontFormatInTab(tabId, eFid, block.type === 'font_size' ? 'size' : 'family', targetLabel);
-      await sleep(200);
-
-      // 4. 선택 해제 및 커서를 문장 맨 끝으로 이동 (End)
-      await sendKey(tabId, 'End', 'End', 35);
       await sleep(150);
     } else if (block.type === 'map' || block.type === 'cta_banner') {
       // business 블록 위치 — 푸터 시스템 전체 삽입 (Puppeteer 동일 로직)
