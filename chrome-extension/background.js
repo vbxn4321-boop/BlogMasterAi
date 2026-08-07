@@ -1079,6 +1079,19 @@ async function clickAiUsageToggle(tabId) {
 }
 
 async function uploadImageInTab(tabId, imageUrl, link = null, isAiGenerated = false) {
+  // 0. 사전 검증: HTTP URL이 유효하고 실제 이미지 바이트를 반환하는지 HEAD 요청으로 사전 검사
+  // (404 JSON 에러 응답을 chrome.downloads가 받아 .json 파일로 만드는 문제 차단)
+  try {
+    const headResp = await fetch(imageUrl, { method: 'HEAD' });
+    const cType = (headResp.headers.get('content-type') || '').toLowerCase();
+    if (!headResp.ok || cType.includes('json') || cType.includes('text/html')) {
+      console.warn(`[IMG] 이미지 URL 접근 실패 (HTTP ${headResp.status}, Content-Type: ${cType}) — 업로드를 건너뜁니다: ${imageUrl}`);
+      return false;
+    }
+  } catch (e) {
+    console.warn('[IMG] 이미지 URL 사전 검사 실패:', e.message);
+  }
+
   // 1. 이미지를 로컬 임시 파일로 다운로드 (로컬 경로 획득)
   let downloadId;
   try {
@@ -1548,17 +1561,48 @@ async function applyFontFormatInTab(tabId, editorFrameId, kind, targetLabel) {
   await clickAtCoords(tabId, triggerCoords.x, triggerCoords.y);
   await sleep(700);
 
-  const optionCoords = await findCoordsInAnyContext((targetText) => {
-    const opts = document.querySelectorAll('.se-toolbar-option-label, [class*="option-label"], [class*="option_label"], .se-custom-select-option, [class*="select_option"]');
+  const optionCoords = await findCoordsInAnyContext((targetText, k) => {
+    const fontSynonyms = {
+      'nanum gothic': ['나눔고딕', '나눔 고딕', 'nanumgothic', 'nanum gothic'],
+      'nanumgothic': ['나눔고딕', '나눔 고딕', 'nanumgothic', 'nanum gothic'],
+      'nanum myeongjo': ['나눔명조', '나눔 명조', 'nanummyeongjo', 'nanum myeongjo'],
+      'nanummyeongjo': ['나눔명조', '나눔 명조', 'nanummyeongjo', 'nanum myeongjo'],
+      'nanum square': ['나눔스퀘어', '나눔 스퀘어', 'nanumsquare', 'nanum square'],
+      'nanumsquare': ['나눔스퀘어', '나눔 스퀘어', 'nanumsquare', 'nanum square'],
+      'nanum bareun gothic': ['나눔바른고딕', '나눔 바른고딕', 'nanum bareun gothic'],
+      'maru buri': ['마루부리', '마루 부리', 'maruburi', 'maru buri'],
+      'maruburi': ['마루부리', '마루 부리', 'maruburi', 'maru buri'],
+    };
+
+    const targetLower = targetText.toLowerCase().trim();
+    const allowed = fontSynonyms[targetLower] || [targetText];
+
+    const opts = document.querySelectorAll(
+      '.se-toolbar-option-label, [class*="option-label"], [class*="option_label"], .se-custom-select-option, [class*="select_option"], button.se-toolbar-option-button, li.se-toolbar-option-item, .se-popup-container button, .se-popup-container li, [class*="option"]'
+    );
+
     for (const el of opts) {
       const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
       const txt = el.textContent.trim();
-      if (r.width > 0 && (txt === targetText || txt.replace(/\s+/g, '') === targetText.replace(/\s+/g, ''))) {
-        return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+      const txtClean = txt.replace(/\s+/g, '').toLowerCase();
+
+      if (k === 'size') {
+        const numMatch = txt.match(/\d+/);
+        if (numMatch && numMatch[0] === targetText.trim()) {
+          return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+        }
+      }
+
+      for (const cand of allowed) {
+        const candClean = cand.replace(/\s+/g, '').toLowerCase();
+        if (txtClean.includes(candClean) || candClean.includes(txtClean)) {
+          return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+        }
       }
     }
     return null;
-  }, [targetLabel]);
+  }, [targetLabel, kind]);
 
   if (!optionCoords) {
     console.warn(`[FONT] ${label} 옵션("${targetLabel}")을 찾지 못해 건너뜁니다.`);
@@ -1567,6 +1611,7 @@ async function applyFontFormatInTab(tabId, editorFrameId, kind, targetLabel) {
   }
   await clickAtCoords(tabId, optionCoords.x, optionCoords.y);
   await sleep(400);
+  console.log(`[FONT] ${label} "${targetLabel}" 성공적으로 선택됨!`);
   return true;
 }
 
@@ -2306,9 +2351,7 @@ async function runEditorAutomation(tabId, jobPayload) {
         }
       }
       await typeViaDebugger(tabId, block.content);
-      await sleep(100);
-      await sendKey(tabId, 'Return', 'Enter', 13);
-      await sleep(100);
+      await sleep(150);
     } else if (block.type === 'image') {
       const imgUrl = imageUrls[block.id - 1];
       const imgLink = business?.image_links?.[block.id] || business?.image_links?.[`anchor${block.id}`] || null;
