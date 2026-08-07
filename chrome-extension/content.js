@@ -33,7 +33,7 @@ window.addEventListener('message', (event) => {
     try {
       chrome.runtime.sendMessage({ type: 'CHECK_NAVER_LOGIN' }, (response) => {
         if (chrome.runtime.lastError) {
-          window.postMessage({ type: 'BLOGMASTER_NAVER_LOGIN_STATUS', loggedIn: false, noExtension: true }, '*');
+          window.postMessage({ type: 'BLOGMASTER_NAVER_LOGIN_STATUS', loggedIn: false, contextInvalidated: true }, '*');
           return;
         }
         window.postMessage({ type: 'BLOGMASTER_NAVER_LOGIN_STATUS', loggedIn: response?.loggedIn || false }, '*');
