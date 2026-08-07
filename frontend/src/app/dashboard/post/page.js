@@ -1954,15 +1954,11 @@ function NewPostContent() {
 
         const naverStatus = await checkNaverLogin();
         if (naverStatus === 'context_invalidated') {
-            setError('확장프로그램이 업데이트되었습니다. 페이지를 새로고침(F5) 후 다시 시도해 주세요.');
+            setError('확장프로그램이 새로고침되었습니다. 페이지를 새로고침(F5) 후 발행해 주세요.');
             return;
         }
         if (naverStatus === 'not_logged_in') {
-            setError('네이버에 로그인되어 있지 않습니다. 같은 브라우저에서 네이버에 먼저 로그인해 주세요.');
-            return;
-        }
-        if (naverStatus === 'no_extension') {
-            setError('Blog Master 확장프로그램이 연결되어 있지 않습니다. 확장프로그램을 먼저 연결해 주세요.');
+            setError('네이버에 로그인되어 있지 않습니다. 같은 브라우저에서 네이버(naver.com)에 로그인해 주세요.');
             return;
         }
 
