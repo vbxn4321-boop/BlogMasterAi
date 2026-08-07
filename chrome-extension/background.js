@@ -1553,26 +1553,34 @@ async function applyFontFormatInTab(tabId, editorFrameId, kind, targetLabel) {
     return await evalInTab(tabId, fn, args);
   };
 
-  // CSS 폰트명 → 네이버 에디터 드롭다운 실제 한글 표시 명칭 매핑
+  // CSS 폰트명 → 네이버 에디터 드롭다운 실제 한글 표시 명칭 및 CSS 클래스 매핑
   const FONT_DISPLAY_MAP = {
-    'inherit': '기본서체',
-    'system': '기본서체',
-    'nanum gothic': '나눔고딕',
-    'nanumgothic': '나눔고딕',
-    'nanum myeongjo': '나눔명조',
-    'nanummyeongjo': '나눔명조',
-    'nanumbarungothic': '나눔바른고딕',
-    'nanumsquare': '나눔스퀘어',
-    'maruburi': '마루부리',
-    'maru buri': '마루부리',
-    'nanum brush script': '다시시작해',
-    'nanum pen script': '바른히피',
+    'inherit':                       { text: '기본서체', cls: 'se-ff-system' },
+    'system':                        { text: '기본서체', cls: 'se-ff-system' },
+    'nanum gothic':                  { text: '나눔고딕', cls: 'se-ff-nanumgothic' },
+    'nanumgothic':                   { text: '나눔고딕', cls: 'se-ff-nanumgothic' },
+    'nanum myeongjo':                { text: '나눔명조', cls: 'se-ff-nanummyeongjo' },
+    'nanummyeongjo':                 { text: '나눔명조', cls: 'se-ff-nanummyeongjo' },
+    'nanumbarungothic':              { text: '나눔바른고딕', cls: 'se-ff-nanumbarungothic' },
+    'nanum barun gothic':            { text: '나눔바른고딕', cls: 'se-ff-nanumbarungothic' },
+    'nanumsquare':                   { text: '나눔스퀘어', cls: 'se-ff-nanumsquare' },
+    'nanum square':                  { text: '나눔스퀘어', cls: 'se-ff-nanumsquare' },
+    'maruburi':                      { text: '마루부리', cls: 'se-ff-nanummaruburi' },
+    'maru buri':                     { text: '마루부리', cls: 'se-ff-nanummaruburi' },
+    'nanummaruburi':                 { text: '마루부리', cls: 'se-ff-nanummaruburi' },
+    'nanum brush script':            { text: '다시시작해', cls: 'se-ff-nanumbrushscript' },
+    'nanum pen script':              { text: '바른히피', cls: 'se-ff-nanumpenscript' },
   };
 
   let exactText = targetLabel;
+  let exactClass = '';
   if (kind === 'family') {
     const cleanLower = targetLabel.split(',')[0].trim().replace(/^['"]|['"]$/g, '').toLowerCase();
-    exactText = FONT_DISPLAY_MAP[cleanLower] || targetLabel;
+    const info = FONT_DISPLAY_MAP[cleanLower];
+    if (info) {
+      exactText = info.text;
+      exactClass = info.cls;
+    }
   }
 
   const triggerCoords = await findCoordsInAnyContext((k) => {
@@ -1607,37 +1615,44 @@ async function applyFontFormatInTab(tabId, editorFrameId, kind, targetLabel) {
   await clickAtCoords(tabId, triggerCoords.x, triggerCoords.y);
   await sleep(500);
 
-  const optionCoords = await findCoordsInAnyContext((targetText, k) => {
+  const optionCoords = await findCoordsInAnyContext((targetText, targetCls, k) => {
     const opts = Array.from(document.querySelectorAll(
-      '.se-toolbar-option-button, .se-toolbar-option-label, [class*="option-label"], [class*="option_label"], .se-custom-select-option, [class*="select_option"], li.se-toolbar-option-item, .se-popup-container button, .se-popup-container li'
+      '.se-toolbar-option-label, [class*="se-ff-"], button.se-toolbar-option-button, li.se-toolbar-option-item, .se-custom-select-option, [class*="option"]'
     ));
 
     for (const el of opts) {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
       const txt = el.textContent.trim();
+      const cls = el.className || '';
 
       if (k === 'size') {
         const numMatch = txt.match(/\d+/);
         if (numMatch && numMatch[0] === targetText.trim()) {
-          el.scrollIntoView({ behavior: 'instant', block: 'nearest' });
-          const r2 = el.getBoundingClientRect();
+          const clickEl = el.closest('button, li') || el;
+          clickEl.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+          const r2 = clickEl.getBoundingClientRect();
           return { x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2) };
         }
       } else {
-        // 정확히 지정된 한글 폰트명과 일치하는 항목 선택 (예: '마루부리')
-        if (txt === targetText || txt.replace(/\s+/g, '') === targetText.replace(/\s+/g, '')) {
-          el.scrollIntoView({ behavior: 'instant', block: 'nearest' });
-          const r2 = el.getBoundingClientRect();
+        // 1) 사용자 제보 정확한 클래스 (.se-ff-nanummaruburi 등) 매칭
+        // 2) 텍스트 ('마루부리') 정확 일치 매칭
+        const classMatches = targetCls && (cls.includes(targetCls) || !!el.querySelector(`.${targetCls}`));
+        const textMatches = txt === targetText || txt.replace(/\s+/g, '') === targetText.replace(/\s+/g, '');
+
+        if (classMatches || textMatches) {
+          const clickEl = el.closest('button, li') || el;
+          clickEl.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+          const r2 = clickEl.getBoundingClientRect();
           return { x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2) };
         }
       }
     }
     return null;
-  }, [exactText, kind]);
+  }, [exactText, exactClass, kind]);
 
   if (!optionCoords) {
-    console.warn(`[FONT] ${label} 옵션("${exactText}")을 찾지 못해 건너뜁니다.`);
+    console.warn(`[FONT] ${label} 옵션("${exactText}" / "${exactClass}")을 찾지 못해 건너뜁니다.`);
     await sendKey(tabId, 'Escape', 'Escape', 27);
     return false;
   }
