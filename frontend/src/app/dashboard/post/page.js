@@ -226,8 +226,18 @@ const QUOTE_RENDER = {
 };
 const QUOTE_SOURCE_SPLIT = /\n출처:\s*([\s\S]*)$/;
 // 툴바 폰트 크기 드롭다운(execCommand fontSize 레벨 1~7)과 동일한 px 매핑.
-// markupToHtml 렌더링과 htmlToMarkup 역변환(px→레벨) 양쪽에서 공유한다.
-const FONT_SIZE_PX = { '2': 13, '3': 15, '4': 17, '5': 19, '6': 24, '7': 32 };
+const FONT_SIZE_PX = { '1': 11, '2': 13, '3': 15, '4': 17, '5': 19, '6': 24, '7': 32 };
+const FONT_FAMILY_MAP = {
+    '기본서체': "'Nanum Gothic', sans-serif",
+    '나눔고딕': "'Nanum Gothic', sans-serif",
+    '나눔명조': "'Nanum Myeongjo', serif",
+    '나눔바른고딕': "'NanumBarunGothic', 'Nanum Gothic', sans-serif",
+    '나눔스퀘어': "'NanumSquareNeo', 'NanumSquare', sans-serif",
+    '마루부리': "'MaruBuri', serif",
+    '다시시작해': "'Nanum Brush Script', cursive",
+    '바른히피': "'Nanum Pen Script', cursive",
+    '우리딸손글씨': "'Nanum Pen Script', cursive",
+};
 
 function escapeHtml(str) {
     return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -243,16 +253,16 @@ function markupToHtml(body, customUploadedImages, imagePrompts) {
     html = html.replace(/\[B\]([\s\S]*?)\[\/B\]/gi, '<strong style="font-weight:650;color:#0f172a">$1</strong>');
     // Clean orphan stray [B] or [/B] tags
     html = html.replace(/\[\/?B\]/gi, '');
-    // [FS_n]...[/FS] → 폰트 크기, [FF_encoded]...[/FF] → 폰트 서체 (툴바에서 지정한 값을
-    // 미리보기 재렌더링 후에도 유지하기 위한 마크업 — htmlToMarkup에서 저장할 때 만들어진다)
-    html = html.replace(/\[FS_(\d)\]([\s\S]*?)\[\/FS\]/gi, (_, level, inner) =>
+    // [FF_family]...[/FF] → 선택 구간 서체 렌더링
+    html = html.replace(/\[FF_([^\]]+)\]([\s\S]*?)\[\/FF\]/gi, (_, family, inner) => {
+        let dec = family;
+        try { dec = decodeURIComponent(family); } catch (_) {}
+        return `<span style="font-family:${dec}">${inner}</span>`;
+    });
+    // [FS_level]...[/FS] → 선택 구간 글자 크기 렌더링
+    html = html.replace(/\[FS_(\d+)\]([\s\S]*?)\[\/FS\]/gi, (_, level, inner) =>
         `<span style="font-size:${FONT_SIZE_PX[level] || 15}px">${inner}</span>`
     );
-    html = html.replace(/\[FF_([^\]]*)\]([\s\S]*?)\[\/FF\]/gi, (_, encoded, inner) => {
-        let family = encoded;
-        try { family = decodeURIComponent(encoded); } catch (_) { /* keep raw */ }
-        return `<span style="font-family:${family}">${inner}</span>`;
-    });
     // [QUOTE_*]...[/QUOTE_*] → 실제 네이버 모양의 편집 가능한 인용구 블록
     for (const [qk, renderer] of Object.entries(QUOTE_RENDER)) {
         const re = new RegExp(`\\[${qk}\\]([\\s\\S]*?)\\[\\/${qk}\\]`, 'gi');
@@ -311,55 +321,16 @@ function htmlToMarkup(html) {
     let text = html;
     // <strong>/<b> → [B]...[/B]
     text = text.replace(/<(?:strong|b)(?:\s[^>]*)?>([\s\S]*?)<\/(?:strong|b)>/gi, '[B]$1[/B]');
-    // <font size/face>(execCommand('fontSize'|'fontName')가 만드는 태그) 또는
-    // <span style="font-size/font-family">(markupToHtml이 재렌더링한 자기 자신) →
-    // [FS_n]/[FF_encoded] 마크업으로 보존. 크기 지정 후 다시 서체를 지정하는 식으로
-    // 중첩될 수 있어, 안쪽에 같은 종류의 태그가 없는 것부터(가장 안쪽부터) 반복 변환한다.
-    // 선택 영역이 줄(문단 div) 경계를 넘어가면 브라우저가 <font>/<span> 태그 안에 </div><div>가
-    // 낀 기형적인 구조를 만들 수 있다 — 이 경우 그대로 [FS_n]/[FF_x]로 감싸면 그 안에 남은
-    // </div><div>가 나중에 줄바꿈(\n)으로 바뀌어 버려 "폰트 대신 줄바꿈이 생기는" 문제가
-    // 생긴다. 그래서 내용에 div/p/br 같은 블록 경계가 전혀 없을 때만 변환하고, 여러 줄에
-    // 걸친 경우는 안전하게 건너뛴다(폰트 적용은 못 지키지만 텍스트를 깨뜨리지는 않음).
-    // <font size/face>(execCommand가 만드는 태그) 또는 <span style="font-size/font-family"> →
-    // [FS_n]/[FF_encoded] 마크업으로 보존.
-    // 선택 영역이 여러 줄(div)을 포함하는 경우, [FS_n] 태그가 </div>를 감싸버리면
-    // </div>가 \n으로 변환될 때 폰트 태그와 엉켜 엉뚱한 줄바꿈이 생기거나 폰트가 유실된다.
-    // 따라서 <font>/<span> 태그 내부에 div/p 블록 경계가 있으면 각 블록 내부로 [FS_n]/[FF_x]를 분배하여
-    // 줄바꿈도 지키고 폰트 서식도 100% 보존한다.
-    let fontTagsRemain = true;
-    while (fontTagsRemain) {
-        fontTagsRemain = false;
-        text = text.replace(/<(font|span)\s+([^>]*)>((?:(?!<(?:font|span)[\s>])[\s\S])*?)<\/\1>/gi, (whole, _tag, attrs, inner) => {
-            const sizeAttr = attrs.match(/size=["']?(\d)["']?/i);
-            const sizeStyle = attrs.match(/font-size:\s*(\d+)px/i);
-            const faceAttr = attrs.match(/face="([^"]*)"/i) || attrs.match(/face='([^']*)'/i);
-            const familyStyle = attrs.match(/font-family:\s*([^;"]+)/i);
-            if (!sizeAttr && !sizeStyle && !faceAttr && !familyStyle) return whole;
+    // <font face="..."> 및 <span style="font-family: ..."> → [FF_...]...[/FF]
+    text = text.replace(/<font\s+[^>]*face=["']([^"']+)["'][^>]*>([\s\S]*?)<\/font>/gi, (_, face, inner) => `[FF_${encodeURIComponent(face)}]${inner}[/FF]`);
+    text = text.replace(/<span\s+[^>]*style=["'][^"']*font-family:\s*([^;'"\s]+(?:\s+[^;'"\s]+)*)[^"']*["'][^>]*>([\s\S]*?)<\/span>/gi, (_, family, inner) => `[FF_${encodeURIComponent(family)}]${inner}[/FF]`);
 
-            fontTagsRemain = true;
-            const face = faceAttr ? faceAttr[1].trim() : (familyStyle ? familyStyle[1].trim() : null);
-            const level = sizeAttr
-                ? sizeAttr[1]
-                : (sizeStyle ? Object.keys(FONT_SIZE_PX).find(k => FONT_SIZE_PX[k] === parseInt(sizeStyle[1], 10)) : null);
-
-            const wrapFont = (t) => {
-                let res = t;
-                if (face) res = `[FF_${encodeURIComponent(face)}]${res}[/FF]`;
-                if (level) res = `[FS_${level}]${res}[/FS]`;
-                return res;
-            };
-
-            // 내부 내용에 div/p 블록이 들어있는 경우: 각 블록 안으로 폰트 마크업을 분배
-            if (/<(?:div|p)[\s>]/i.test(inner)) {
-                return inner.replace(/(<(?:div|p)[^>]*>)([\s\S]*?)(<\/(?:div|p)>)/gi, (_, open, body, close) => {
-                    if (!body.trim()) return open + body + close;
-                    return open + wrapFont(body) + close;
-                });
-            }
-
-            return wrapFont(inner);
-        });
-    }
+    // <font size="..."> 및 <span style="font-size: ..."> → [FS_...]...[/FS]
+    text = text.replace(/<font\s+[^>]*size=["'](\d+)["'][^>]*>([\s\S]*?)<\/font>/gi, '[FS_$1]$2[/FS]');
+    text = text.replace(/<span\s+[^>]*style=["'][^"']*font-size:\s*(\d+)px[^"']*["'][^>]*>([\s\S]*?)<\/span>/gi, (_, px, inner) => {
+        const lvl = Object.keys(FONT_SIZE_PX).find(k => FONT_SIZE_PX[k] === parseInt(px, 10)) || '3';
+        return `[FS_${lvl}]${inner}[/FS]`;
+    });
     // 인용구, data-image-anchor 블록은 모두 안에 중첩 div를 포함할 수 있어 regex로 안전하게
     // 못 뽑아낸다 — syncEditorToState에서 DOM을 직접 순회해 [QUOTE_*]...[/QUOTE_*],
     // [IMAGE_ANCHOR_N] 플레이스홀더로 미리 치환해두므로 여기선 손대지 않는다.
@@ -857,6 +828,7 @@ function NewPostContent() {
     const [dividerDropdownOpen, setDividerDropdownOpen] = useState(false);
     const [fontDropdownOpen, setFontDropdownOpen] = useState(false);
     const [selectedFontName, setSelectedFontName] = useState('나눔고딕');
+    const [selectedFontSize, setSelectedFontSize] = useState('3');
     const [alignDropdownOpen, setAlignDropdownOpen] = useState(false);
     const [selectedAlign, setSelectedAlign] = useState('left');
     const [symbolModalOpen, setSymbolModalOpen] = useState(false);
@@ -1125,6 +1097,34 @@ function NewPostContent() {
         document.execCommand(cmd, false, value || null);
         clearTimeout(editorSyncTimer.current);
         editorSyncTimer.current = setTimeout(syncEditorToState, 300);
+    }, [syncEditorToState]);
+
+    const applyFontFamilyToSelection = useCallback((fontCss, fontDisplayName) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+            document.execCommand('fontName', false, fontCss);
+        } else {
+            setSelectedFontName(fontDisplayName);
+            editorRef.current.style.fontFamily = fontCss;
+        }
+        clearTimeout(editorSyncTimer.current);
+        editorSyncTimer.current = setTimeout(syncEditorToState, 150);
+    }, [syncEditorToState]);
+
+    const applyFontSizeToSelection = useCallback((sizeLevel) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+            document.execCommand('fontSize', false, sizeLevel);
+        } else {
+            setSelectedFontSize(sizeLevel);
+            editorRef.current.style.fontSize = (FONT_SIZE_PX[sizeLevel] || 15) + 'px';
+        }
+        clearTimeout(editorSyncTimer.current);
+        editorSyncTimer.current = setTimeout(syncEditorToState, 150);
     }, [syncEditorToState]);
 
     // 본문에 이미 존재하는 [IMAGE_ANCHOR_N] 중 가장 큰 번호 다음 번호를 반환한다.
@@ -2101,6 +2101,8 @@ function NewPostContent() {
                 seo_guidelines: activePreviewData.seo_stats || activePreviewData.seo_guidelines || {},
                 data_asset: activePreviewData.data_asset || {},
                 image_source: imageSource,
+                selectedFont: selectedFontName || '나눔고딕',
+                selectedFontSize: selectedFontSize || '3',
                 selected_pexels_images: imageSource === 'stock'
                     ? (activePreviewData.image_prompts || []).map((_, i) => selectedPexels[i]?.url || null).filter(Boolean)
                     : undefined,
@@ -4125,8 +4127,7 @@ function NewPostContent() {
                                                                 key={f.name}
                                                                 onMouseDown={e => e.preventDefault()}
                                                                 onClick={() => {
-                                                                    setSelectedFontName(f.name);
-                                                                    execFormat('fontName', f.font);
+                                                                    applyFontFamilyToSelection(f.font, f.name);
                                                                     setFontDropdownOpen(false);
                                                                 }}
                                                                 style={{
@@ -4147,11 +4148,13 @@ function NewPostContent() {
                                             </div>
 
                                             <select
-                                                onChange={e => execFormat('fontSize', e.target.value)}
+                                                value={selectedFontSize}
+                                                onChange={e => applyFontSizeToSelection(e.target.value)}
                                                 style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff', cursor: 'pointer', outline: 'none' }}
                                             >
-                                                <option value="3">15</option>
+                                                <option value="1">11</option>
                                                 <option value="2">13</option>
+                                                <option value="3">15</option>
                                                 <option value="4">17</option>
                                                 <option value="5">19</option>
                                                 <option value="6">24</option>
@@ -4454,13 +4457,13 @@ function NewPostContent() {
                                                 data-placeholder="나를 돌아보는 회고, 뜻밖의 발견을 기다립니다."
                                                 style={{
                                                     width: '100%',
-                                                    fontSize: 16,
+                                                    fontSize: (FONT_SIZE_PX[selectedFontSize] || 16) + 'px',
                                                     lineHeight: 1.85,
                                                     color: '#2d3748',
                                                     border: 'none',
                                                     outline: 'none',
                                                     minHeight: 400,
-                                                    fontFamily: "'Nanum Gothic', sans-serif",
+                                                    fontFamily: FONT_FAMILY_MAP[selectedFontName] || "'Nanum Gothic', sans-serif",
                                                     whiteSpace: 'pre-wrap',
                                                     background: 'transparent',
                                                     cursor: 'text',

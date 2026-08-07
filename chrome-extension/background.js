@@ -408,10 +408,14 @@ async function processJob(job, apiUrl, accessToken) {
       return;
     }
 
-    const imageUrls = (job.content_json?.extension_images || []).map((imgPath, i) => {
+    const rawImages = (job.content_json?.extension_images && job.content_json.extension_images.length > 0)
+      ? job.content_json.extension_images
+      : (job.content_json?.custom_uploaded_images || job.content_json?.selected_pexels_images || []);
+
+    const imageUrls = rawImages.map((imgPath, i) => {
       if (!imgPath) return null;
-      if (typeof imgPath === 'string' && imgPath.startsWith('http')) {
-        console.log(`[IMG-URL] #${i}: Supabase직접 → ${imgPath.substring(0, 80)}...`);
+      if (typeof imgPath === 'string' && (imgPath.startsWith('http://') || imgPath.startsWith('https://') || imgPath.startsWith('data:image/'))) {
+        console.log(`[IMG-URL] #${i}: 직접 URL → ${imgPath.substring(0, 80)}...`);
         return imgPath;
       }
       const proxyUrl = `${apiUrl}/api/extension/image/${job.id}/${i}?token=${encodeURIComponent(accessToken)}`;
@@ -1118,13 +1122,29 @@ async function clickAiUsageToggle(tabId) {
 }
 
 async function uploadImageInTab(tabId, imageUrl, link = null, isAiGenerated = false) {
+  if (!imageUrl) return false;
+
+  let finalUrl = imageUrl;
+  if (/^[A-Za-z0-9+/=]{100,}/.test(imageUrl) && !imageUrl.startsWith('data:') && !imageUrl.startsWith('http')) {
+    finalUrl = `data:image/png;base64,${imageUrl}`;
+  }
+
+  let ext = 'jpg';
+  if (finalUrl.startsWith('data:image/png')) ext = 'png';
+  else if (finalUrl.startsWith('data:image/gif')) ext = 'gif';
+  else if (finalUrl.startsWith('data:image/webp')) ext = 'webp';
+  else {
+    const m = finalUrl.split('?')[0].match(/\.(png|jpg|jpeg|gif|webp)$/i);
+    if (m) ext = m[1].toLowerCase();
+  }
+
   // 1. 이미지를 로컬 임시 파일로 다운로드 (로컬 경로 획득)
   let downloadId;
   try {
     downloadId = await new Promise((resolve, reject) => {
       chrome.downloads.download({
-        url: imageUrl,
-        filename: `blogmaster_${Date.now()}.jpg`,
+        url: finalUrl,
+        filename: `blogmaster_${Date.now()}.${ext}`,
         saveAs: false,
         conflictAction: 'overwrite',
       }, (id) => {
@@ -1176,10 +1196,10 @@ async function uploadImageInTab(tabId, imageUrl, link = null, isAiGenerated = fa
     console.warn('[IMG] Image download failed or timed out');
     return false;
   }
-  // 실제 이미지는 수십 KB~수 MB 수준(fileSize > 500 bytes)입니다.
-  // 404 JSON 에러 응답(약 30~50 bytes)인 경우 업로드를 방지하고 건너뜁니다.
-  if (downloadedItem.fileSize && downloadedItem.fileSize < 500) {
-    console.warn(`[IMG] 다운로드된 파일 용량이 너무 작습니다 (${downloadedItem.fileSize} bytes) — 깨진 이미지/에러 응답으로 간주하여 건너뜁니다.`);
+  // 실제 이미지는 수십 KB~수 MB 수준입니다.
+  // 404 JSON/HTML 에러 응답인 경우 네이버 블로그에 .json 파일이 올라가는 것을 방지하고 건너뜁니다.
+  if (localPath.endsWith('.json') || (downloadedItem.fileSize && downloadedItem.fileSize < 500) || (downloadedItem.mime && (downloadedItem.mime.includes('json') || downloadedItem.mime.includes('html')))) {
+    console.warn(`[IMG] 다운로드된 파일이 이미지 대신 JSON/HTML 에러 응답입니다 (${localPath}, mime: ${downloadedItem.mime}, size: ${downloadedItem.fileSize}). 업로드를 건너뜁니다.`);
     chrome.downloads.removeFile(downloadId, () => {});
     return false;
   }
@@ -2389,6 +2409,14 @@ async function runEditorAutomation(tabId, jobPayload) {
   const blocks = parseBlocks((content || '').replace(/^\n+/, ''));
   let footerInserted = false;
 
+  // 기본 폰트 — 사용자가 지정한 서체가 있을 때만 적용, 기본값은 네이버 에디터 기본서체(나눔고딕)
+  const baseFont = (jobPayload.selectedFont && jobPayload.selectedFont !== '기본서체') ? jobPayload.selectedFont : null;
+  if (baseFont) {
+    console.warn('[AUTOMATION] 사용자가 선택한 기본 서체 적용:', baseFont);
+    await applyFontFormatInTab(tabId, eFid, 'family', baseFont);
+    await sleep(400);
+  }
+
   for (let blockIdx = 0; blockIdx < blocks.length; blockIdx++) {
     const block = blocks[blockIdx];
     if (block.type === 'text') {
@@ -2421,9 +2449,26 @@ async function runEditorAutomation(tabId, jobPayload) {
       await insertQuoteInTab(tabId, eFid, block.type, block.content);
       await sendKey(tabId, 'Return', 'Enter', 13); // 인용구 뒤 1칸
       await sleep(150);
-    } else if (block.type === 'font_size' || block.type === 'font_family') {
-      // 폰트 블록도 텍스트 누락이나 삭제 없이 온전하게 전체 타이핑
+    } else if (block.type === 'font_family') {
+      const bFont = block.family || block.font;
+      if (bFont) {
+        // 구간 폰트 변경 후 해당 텍스트 타이핑
+        await applyFontFormatInTab(tabId, eFid, 'family', bFont);
+        await typeViaDebugger(tabId, block.content);
+        await sleep(150);
+        // 구간 타이핑 완료 후 원래 기본서체로 즉시 복원
+        await applyFontFormatInTab(tabId, eFid, 'family', baseFont || '기본서체');
+        await sleep(150);
+      } else {
+        await typeViaDebugger(tabId, block.content);
+        await sleep(150);
+      }
+    } else if (block.type === 'font_size') {
+      await applyFontFormatInTab(tabId, eFid, 'size', block.level || block.size);
       await typeViaDebugger(tabId, block.content);
+      await sleep(150);
+      // 구간 크기 타이핑이 끝나면 원래 기본 크기(15px / 레벨 3)로 복원
+      await applyFontFormatInTab(tabId, eFid, 'size', '3');
       await sleep(150);
     } else if (block.type === 'map' || block.type === 'cta_banner') {
       // business 블록 위치 — 푸터 시스템 전체 삽입 (Puppeteer 동일 로직)
