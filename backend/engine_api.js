@@ -529,8 +529,8 @@ ${transcript}
 [규칙]
 - 정보가 부족하거나 주제가 너무 막연하면 ready=false로 하고, reply에 짧은 후속 질문을 하나만 하세요. 이 경우 main_keyword/sub_keywords/topic은 null로 두세요.
 - 충분하면 ready=true로 하고:
-  - main_keyword: 실제 네이버에 검색할 법한 구체적이고 짧은 키워드 문구 (문장 아님)
-  - sub_keywords: 연관 키워드 2~4개 배열
+  - main_keyword: 사용자가 네이버 검색창에 실제로 검색할 법한 2~3단어 조합의 대표 검색어 (예: '부산 국밥 맛집', '부산 돼지국밥'). 절대로 '부산 현지인 추천 국밥 맛집' 같은 긴 서술형 문장을 main_keyword로 쓰지 마세요.
+  - sub_keywords: 사용자가 함께 검색하는 실질적인 연관 검색 키워드 2~4개 배열 (예: ['부산 돼지국밥', '부산 현지인 맛집', '부산 국밥 추천'])
   - topic: 어떤 내용으로 쓸지 1~2문장 요약
   - reply에는 이 내용을 자연스럽게 요약해서 "이대로 포스팅을 시작할까요?"라고 물어보세요.
 - reply는 항상 친근한 한국어 존댓말로 3문장 이내.
@@ -552,20 +552,63 @@ ${transcript}
         };
 
         if (responseBody.ready) {
-            responseBody.main_keyword = parsed.main_keyword;
-            responseBody.sub_keywords = Array.isArray(parsed.sub_keywords) ? parsed.sub_keywords.slice(0, 4) : [];
-            responseBody.topic = parsed.topic || parsed.main_keyword;
+            let mainKw = (parsed.main_keyword || '').trim();
+            let subKws = Array.isArray(parsed.sub_keywords) ? parsed.sub_keywords.map(s => String(s).trim()).filter(Boolean).slice(0, 4) : [];
+            const topic = parsed.topic || mainKw;
+            const stripSpace = (s) => (s || '').replace(/\s+/g, '');
 
-            // 실제 검색량 조회 — 실패해도 제안 자체는 그대로 진행
             try {
                 const naverAd = require('./naver_ad_api');
-                const stripSpace = (s) => s.replace(/\s+/g, '');
-                const stats = await naverAd.getKeywordStats([stripSpace(parsed.main_keyword)]);
+                const hints = [stripSpace(mainKw), ...subKws.map(stripSpace)].filter(Boolean);
+                const stats = await naverAd.getKeywordStats(hints);
+
                 if (stats && stats.length > 0) {
-                    const match = stats.find(s => s.relKeyword === stripSpace(parsed.main_keyword)) || stats[0];
-                    responseBody.volume = (parseInt(match.monthlyPcQcCnt) || 0) + (parseInt(match.monthlyMobileQcCnt) || 0);
+                    const statsMap = new Map();
+                    stats.forEach(item => {
+                        const vol = (parseInt(item.monthlyPcQcCnt) || 0) + (parseInt(item.monthlyMobileQcCnt) || 0);
+                        statsMap.set(item.relKeyword, vol);
+                    });
+
+                    let mainVol = statsMap.get(stripSpace(mainKw)) ?? 0;
+
+                    // main_keyword의 검색량이 0이면 네이버 검색광고 연관 키워드 중 가장 검색량이 높은 실제 키워드로 자동 교체
+                    if (mainVol === 0) {
+                        const sortedStats = [...stats].sort((a, b) => {
+                            const volA = (parseInt(a.monthlyPcQcCnt) || 0) + (parseInt(a.monthlyMobileQcCnt) || 0);
+                            const volB = (parseInt(b.monthlyPcQcCnt) || 0) + (parseInt(b.monthlyMobileQcCnt) || 0);
+                            return volB - volA;
+                        });
+                        const topStat = sortedStats.find(s => ((parseInt(s.monthlyPcQcCnt) || 0) + (parseInt(s.monthlyMobileQcCnt) || 0)) > 0);
+                        if (topStat) {
+                            const topVol = (parseInt(topStat.monthlyPcQcCnt) || 0) + (parseInt(topStat.monthlyMobileQcCnt) || 0);
+                            const matchedSub = subKws.find(s => stripSpace(s) === topStat.relKeyword);
+                            mainKw = matchedSub || topStat.relKeyword;
+                            mainVol = topVol;
+                        }
+                    }
+
+                    const subKwDetails = subKws.map(kw => ({
+                        keyword: kw,
+                        volume: statsMap.get(stripSpace(kw)) ?? 0
+                    }));
+
+                    responseBody.main_keyword = mainKw;
+                    responseBody.volume = mainVol;
+                    responseBody.sub_keywords = subKwDetails;
+                    responseBody.topic = topic;
+                } else {
+                    responseBody.main_keyword = mainKw;
+                    responseBody.volume = 0;
+                    responseBody.sub_keywords = subKws.map(kw => ({ keyword: kw, volume: 0 }));
+                    responseBody.topic = topic;
                 }
-            } catch (_) { /* 검색량 조회 실패는 무시 */ }
+            } catch (e) {
+                console.warn('[Keyword Chat] Volume lookup error:', e.message);
+                responseBody.main_keyword = mainKw;
+                responseBody.volume = 0;
+                responseBody.sub_keywords = subKws.map(kw => ({ keyword: kw, volume: 0 }));
+                responseBody.topic = topic;
+            }
         }
 
         res.json(responseBody);
@@ -574,6 +617,7 @@ ${transcript}
         res.status(500).json({ error: err.message });
     }
 });
+
 
 // ════════════════════════════════════════
 //  GET /api/recommendations — 계정 컨셉 기반 키워드 추천
