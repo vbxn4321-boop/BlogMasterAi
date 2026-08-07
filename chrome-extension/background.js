@@ -411,10 +411,14 @@ async function processJob(job, apiUrl, accessToken) {
     const imageUrls = (job.content_json?.extension_images || []).map((imgPath, i) => {
       if (!imgPath) return null;
       if (typeof imgPath === 'string' && imgPath.startsWith('http')) {
+        console.log(`[IMG-URL] #${i}: Supabase직접 → ${imgPath.substring(0, 80)}...`);
         return imgPath;
       }
-      return `${apiUrl}/api/extension/image/${job.id}/${i}?token=${encodeURIComponent(accessToken)}`;
+      const proxyUrl = `${apiUrl}/api/extension/image/${job.id}/${i}?token=${encodeURIComponent(accessToken)}`;
+      console.warn(`[IMG-URL] #${i}: 로컬경로(${imgPath}) → 프록시 ${proxyUrl.substring(0, 80)}...`);
+      return proxyUrl;
     });
+    console.log(`[IMG-URL] 총 ${imageUrls.length}개 이미지, http직접=${imageUrls.filter(u => u?.startsWith('http') && !u?.includes('/api/extension/')).length}, 프록시=${imageUrls.filter(u => u?.includes('/api/extension/')).length}, null=${imageUrls.filter(u => !u).length}`);
 
     const publishOptions = {
       ...(job.content_json?.publish_options || {}),
@@ -2352,22 +2356,55 @@ async function runEditorAutomation(tabId, jobPayload) {
       await sendKey(tabId, 'Return', 'Enter', 13); // 인용구 뒤 1칸
       await sleep(150);
     } else if (block.type === 'font_size' || block.type === 'font_family') {
-      const targetLabel = block.type === 'font_size'
-        ? String(FONT_SIZE_LEVEL_PX[block.level] || block.level)
-        : block.family;
-      // 네이버 스마트에디터 ONE 서식 적용 순서:
-      // 1) 텍스트 먼저 타이핑
+      // ── 폰트 서식 적용 (execCommand 직접 사용) ──
+      // 네이버 스마트에디터 ONE의 툴바 드롭다운을 클릭하는 방식은 DOM 구조 변동에
+      // 취약하고, 드롭다운이 열렸다 닫히기만 하는 현상이 잦다. 대신 브라우저
+      // 표준 API인 document.execCommand를 에디터 iframe 안에서 직접 실행하면
+      // 100% 확실하게 선택된 텍스트에 서식을 적용할 수 있다.
+      //
+      // 순서: ① 텍스트 타이핑 → ② Selection API로 타이핑한 글자만 정확히 선택
+      //       → ③ execCommand('fontSize'|'fontName') 실행 → ④ 커서 맨 뒤로 이동
+
+      // ① 텍스트 타이핑
       await typeViaDebugger(tabId, block.content);
-      await sleep(150);
-      // 2) 타이핑된 해당 문장 전체 선택 (Shift + Home)
-      await sendKey(tabId, 'Home', 'Home', 36, 8);
       await sleep(200);
-      // 3) 선택 영역에 폰트 크기/서체 적용
-      await applyFontFormatInTab(tabId, eFid, block.type === 'font_size' ? 'size' : 'family', targetLabel);
-      await sleep(200);
-      // 4) 선택 해제 후 커서를 문장 맨 뒤로 이동 (End)
-      await sendKey(tabId, 'End', 'End', 35);
+
+      // ② 방금 타이핑한 텍스트만 역방향 선택 (Selection.modify 반복)
+      const plainLen = block.content.replace(/\[B\]|\[\/B\]/gi, '').replace(/\n+/g, '').length;
+      await evalInEditor(tabId, eFid, (len) => {
+        const sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return;
+        for (let i = 0; i < len; i++) {
+          sel.modify('extend', 'backward', 'character');
+        }
+      }, [plainLen]);
       await sleep(150);
+
+      // ③ execCommand로 폰트 서식 적용
+      if (block.type === 'font_size') {
+        // execCommand fontSize는 레벨(1~7)을 받는다
+        await evalInEditor(tabId, eFid, (level) => {
+          document.execCommand('fontSize', false, level);
+        }, [block.level]);
+        console.log(`[FONT] execCommand fontSize level=${block.level} 적용 완료`);
+      } else {
+        // font family: "'MaruBuri', serif" 같은 CSS 값에서 첫 번째 폰트명만 추출
+        let cssFamily = block.family;
+        // CSS fallback 제거하고 첫 번째 폰트명만 사용
+        const firstFont = cssFamily.split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+        await evalInEditor(tabId, eFid, (family) => {
+          document.execCommand('fontName', false, family);
+        }, [firstFont]);
+        console.log(`[FONT] execCommand fontName="${firstFont}" 적용 완료 (원본: ${cssFamily})`);
+      }
+      await sleep(150);
+
+      // ④ 선택 해제 후 커서를 줄 맨 뒤로 이동
+      await evalInEditor(tabId, eFid, () => {
+        const sel = window.getSelection();
+        if (sel) sel.collapseToEnd();
+      });
+      await sleep(100);
     } else if (block.type === 'map' || block.type === 'cta_banner') {
       // business 블록 위치 — 푸터 시스템 전체 삽입 (Puppeteer 동일 로직)
       if (!footerInserted) {
