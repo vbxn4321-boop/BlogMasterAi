@@ -2389,16 +2389,6 @@ async function runEditorAutomation(tabId, jobPayload) {
   const blocks = parseBlocks((content || '').replace(/^\n+/, ''));
   let footerInserted = false;
 
-  // 전체 글의 기본 폰트(마루부리 등)가 있으면 본문 시작 시 툴바에서 1회 전체 적용
-  const primaryFont = blocks.find(b => b.type === 'font_family')?.family || null;
-  if (primaryFont) {
-    console.log('[AUTOMATION] 글 전체 기본 폰트 설정:', primaryFont);
-    await applyFontFormatInTab(tabId, eFid, 'family', primaryFont);
-    await sleep(300);
-    if (bodyCoords) await clickAtCoords(tabId, bodyCoords.x, bodyCoords.y);
-    await sleep(200);
-  }
-
   for (let blockIdx = 0; blockIdx < blocks.length; blockIdx++) {
     const block = blocks[blockIdx];
     if (block.type === 'text') {
