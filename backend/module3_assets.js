@@ -342,16 +342,18 @@ class AssetManager {
                     fs.writeFileSync(targetPath, Buffer.from(response.data));
                 }
                 
+                const isVideoAsset = /\.(mp4|mov|avi|webm)$/i.test(ext);
                 const result = {
                     index: i + 1,
                     filename: filename,
                     path: targetPath,
                     status: 'SUCCESS',
-                    source: 'USER'
+                    source: 'USER',
+                    mediaType: isVideoAsset ? 'video' : 'image'
                 };
 
-                // 사용자 제공 첫 번째 이미지에 썸네일 텍스트 합성
-                if (i === 0 && thumbnailText) {
+                // 사용자 제공 첫 번째 이미지에 썸네일 텍스트 합성 (동영상은 이미지 처리 대상이 아니므로 건너뜀)
+                if (i === 0 && thumbnailText && !isVideoAsset) {
                     await this.overlayTextOnImage(targetPath, thumbnailText, thumbnailStyle, thumbnailTextColor, thumbnailSubText || '');
                 }
 
@@ -557,7 +559,10 @@ class AssetManager {
             image_count: successCount,
             total_expected: totalExpected,
             metadata: config.image.style,
-            details: results
+            details: results,
+            // path -> mediaType 매핑. module4_executor.js/확장프로그램이 동영상/이미지를
+            // 구분할 때 우선 이걸 참조하고, 없으면 파일 확장자로 폴백한다.
+            media_meta: results.filter(r => r.mediaType).map(r => ({ path: r.path, mediaType: r.mediaType }))
         };
 
         // Save report to logs

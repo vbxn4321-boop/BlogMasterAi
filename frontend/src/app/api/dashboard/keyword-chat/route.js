@@ -18,7 +18,9 @@ export async function POST(req) {
             .eq('id', user.id)
             .single();
 
-        if (!profile?.gemini_api_key) {
+        const apiKey = profile?.gemini_api_key || process.env.GEMINI_API_KEY || null;
+
+        if (!apiKey) {
             return NextResponse.json({ error: '제미나이 API 키가 등록되지 않았습니다. 설정 > 프로필에서 Gemini API 키를 먼저 등록해주세요.' }, { status: 400 });
         }
 
@@ -29,7 +31,7 @@ export async function POST(req) {
                 'Content-Type': 'application/json',
                 'x-engine-secret': process.env.ENGINE_API_SECRET,
             },
-            body: JSON.stringify({ history, gemini_api_key: profile.gemini_api_key }),
+            body: JSON.stringify({ history, gemini_api_key: apiKey }),
         });
 
         const data = await response.json();

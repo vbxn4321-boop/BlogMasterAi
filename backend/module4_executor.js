@@ -1965,6 +1965,32 @@ class ExecutionAgent {
         if (styleBtn) await styleBtn.click();
         await utils.randomDelay(1000, 1500);
         await typeText(block.content);
+
+        // 출처 — 실제 네이버 에디터에서 확인한 구조상 출처 입력란도 본문과 똑같은
+        // se-text-paragraph 문단이라 클래스만으론 구분이 안 되고, 감싸는 요소에
+        // "se-cite"가 들어있는 것으로만 구분된다. 문서 전체에서 .se-cite를 찾으면
+        // 다른 인용구의 출처란을 잘못 집을 수 있으므로, 방금 타이핑한 캐럿이 속한
+        // 인용구 컴포넌트(.se-component) 안에서만 상대적으로 찾는다.
+        if (block.source) {
+            const moved = await frame.evaluate(() => {
+                const sel = window.getSelection();
+                const node = sel && sel.anchorNode;
+                const el = node ? (node.nodeType === 3 ? node.parentElement : node) : null;
+                const component = el ? el.closest('.se-component') : null;
+                const citeTarget = component
+                    ? component.querySelector('[class*="se-cite"] p, [class*="se-cite"] [contenteditable]')
+                    : null;
+                if (citeTarget) { citeTarget.focus(); citeTarget.click(); return true; }
+                return false;
+            });
+            if (moved) {
+                await utils.randomDelay(300, 500);
+                await typeText(block.source);
+            } else {
+                console.log('[Module 4] 출처 입력란을 찾지 못해 출처 입력을 건너뜁니다.');
+            }
+        }
+
         console.log(`[Module 4] Finished typing quote. Exiting quote block...`);
         // pressEnter은 인용구 내부에 빈 줄을 만들어 소제목 아래 줄바꿈이 생기므로 제거
         await this.page.keyboard.press('Escape');
@@ -2152,20 +2178,34 @@ class ExecutionAgent {
             const pi = pMatch ? pMatch.index : -1;
             const dMatch = remaining.match(/\[QUOTE_?DEFAULT\]/i);
             const di = dMatch ? dMatch.index : -1;
+            const baMatch = remaining.match(/\[QUOTE_?BALLOON\]/i);
+            const bai = baMatch ? baMatch.index : -1;
+            const lqMatch = remaining.match(/\[QUOTE_?LINE_?QUOTATION\]/i);
+            const lqi = lqMatch ? lqMatch.index : -1;
+            const frMatch = remaining.match(/\[QUOTE_?FRAME\]/i);
+            const fri = frMatch ? frMatch.index : -1;
             const bi = remaining.search(/\[B\]/i);
             const mi = remaining.search(/\[BUSINESS_?MAP_?BLOCK\]/i);
             const ci = remaining.search(/\[BUSINESS_?CTA_?BANNER\]/i);
             const imageMatch = remaining.match(/\[IMAGE_?ANCHOR_?(?:\s*)(\d+)\]/i);
             const ii = imageMatch ? imageMatch.index : -1;
+            // 스티커 태그는 아직 실제 네이버 에디터에 붙일 검증된 셀렉터가 없어 이미지처럼
+            // 삽입하지 못한다 — 대괄호가 그대로 텍스트로 노출되는 것보다는 조용히 제거한다.
+            const stMatch = remaining.match(/\[STICKER_[\w-]+\]/i);
+            const sti = stMatch ? stMatch.index : -1;
 
             const matches = [
                 { type: 'quote_vertical', index: vi, match: vMatch },
                 { type: 'quote_postit', index: pi, match: pMatch },
                 { type: 'quote_default', index: di, match: dMatch },
+                { type: 'quote_balloon', index: bai, match: baMatch },
+                { type: 'quote_line_quotation', index: lqi, match: lqMatch },
+                { type: 'quote_frame', index: fri, match: frMatch },
                 { type: 'image', index: ii, match: imageMatch },
                 { type: 'bold', index: bi },
                 { type: 'map', index: mi, regex: /\[BUSINESS_?MAP_?BLOCK\]/i },
-                { type: 'cta_banner', index: ci, regex: /\[BUSINESS_?CTA_?BANNER\]/i }
+                { type: 'cta_banner', index: ci, regex: /\[BUSINESS_?CTA_?BANNER\]/i },
+                { type: 'sticker', index: sti, match: stMatch }
             ].filter(m => m.index !== -1).sort((a, b) => a.index - b.index);
 
             if (matches.length === 0) {
@@ -2185,13 +2225,18 @@ class ExecutionAgent {
                 if (eMatch) {
                     const eIdx = sTag.length + eMatch.index;
                     // 인용구 안에 남아있을 수 있는 파싱 마커 흔적 지우기
-                    const cleanText = remaining.substring(sTag.length, eIdx).trim()
+                    const rawInner = remaining.substring(sTag.length, eIdx).trim()
                         .replace(/\[\/?B\]/gi, '')
-                        .replace(/\[IMAGE_ANCHOR_\d+\]/gi, '')
-                        .replace(/\n+/g, ' ')  // 소제목 내 줄바꿈 제거 (인용구는 단일 줄)
+                        .replace(/\[IMAGE_ANCHOR_\d+\]/gi, '');
+                    // "\n출처: xxx" 부분은 본문과 분리해 별도 출처 입력란에 타이핑한다
+                    // (프론트엔드 QUOTE_SOURCE_SPLIT과 동일한 규칙).
+                    const sourceMatch = rawInner.match(/\n출처:\s*([\s\S]*)$/);
+                    const mainText = (sourceMatch ? rawInner.slice(0, sourceMatch.index) : rawInner)
+                        .replace(/\n+/g, ' ')  // 소제목 내 줄바꿈 제거 (인용구 본문은 단일 줄)
                         .trim();
+                    const sourceText = sourceMatch ? sourceMatch[1].replace(/\n+/g, ' ').trim() : '';
 
-                    tokens.push({ type: first.type, content: cleanText });
+                    tokens.push({ type: first.type, content: mainText, source: sourceText });
                     // 소제목 태그 직후의 줄바꿈 제거 — AI가 [/QUOTE_VERTICAL]\n 으로 생성하면
                     // 그 \n이 텍스트 토큰이 되어 소제목 아래 빈 줄로 나타남
                     remaining = remaining.substring(eIdx + eMatch[0].length).replace(/^\n+/, '');
@@ -2219,6 +2264,9 @@ class ExecutionAgent {
                 tokens.push({ type: 'cta_banner' });
                 const cMatch = remaining.match(first.regex);
                 remaining = remaining.substring(cMatch ? cMatch[0].length : 0);
+            } else if (first.type === 'sticker') {
+                console.log(`[Module 4] Skipping unsupported sticker tag: ${first.match[0]}`);
+                remaining = remaining.substring(first.match[0].length);
             }
         }
         return tokens;

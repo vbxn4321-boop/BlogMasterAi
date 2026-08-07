@@ -571,21 +571,39 @@ ${transcript}
 
                     let mainVol = statsMap.get(stripSpace(mainKw)) ?? 0;
 
-                    // main_keyword의 검색량이 0이면 네이버 검색광고 연관 키워드 중 가장 검색량이 높은 실제 키워드로 자동 교체
-                    if (mainVol === 0) {
-                        const sortedStats = [...stats].sort((a, b) => {
-                            const volA = (parseInt(a.monthlyPcQcCnt) || 0) + (parseInt(a.monthlyMobileQcCnt) || 0);
-                            const volB = (parseInt(b.monthlyPcQcCnt) || 0) + (parseInt(b.monthlyMobileQcCnt) || 0);
-                            return volB - volA;
-                        });
-                        const topStat = sortedStats.find(s => ((parseInt(s.monthlyPcQcCnt) || 0) + (parseInt(s.monthlyMobileQcCnt) || 0)) > 0);
-                        if (topStat) {
-                            const topVol = (parseInt(topStat.monthlyPcQcCnt) || 0) + (parseInt(topStat.monthlyMobileQcCnt) || 0);
-                            const matchedSub = subKws.find(s => stripSpace(s) === topStat.relKeyword);
-                            mainKw = matchedSub || topStat.relKeyword;
-                            mainVol = topVol;
+                    // 유사도 검사 유틸리티 (글자 포함 관계 및 핵심 키워드 유사성)
+                    const isSimilarKeyword = (kw1, kw2) => {
+                        const s1 = stripSpace(kw1);
+                        const s2 = stripSpace(kw2);
+                        if (s1 === s2) return true;
+                        if (s1.length >= 3 && s2.length >= 3) {
+                            if (s1.includes(s2) || s2.includes(s1)) return true;
+                            let common = 0;
+                            for (const char of s1) { if (s2.includes(char)) common++; }
+                            if (common / Math.max(s1.length, s2.length) >= 0.65) return true;
                         }
+                        return false;
+                    };
+
+                    // 만약 AI가 뽑은 main_keyword의 검색량이 적거나 0이고, 네이버 연관 데이터 중 유사하면서 검색량이 훨씬 높은 실제 키워드가 있다면 자동 보정
+                    const sortedStats = [...stats].sort((a, b) => {
+                        const volA = (parseInt(a.monthlyPcQcCnt) || 0) + (parseInt(a.monthlyMobileQcCnt) || 0);
+                        const volB = (parseInt(b.monthlyPcQcCnt) || 0) + (parseInt(b.monthlyMobileQcCnt) || 0);
+                        return volB - volA;
+                    });
+
+                    const betterStat = sortedStats.find(s => {
+                        const vol = (parseInt(s.monthlyPcQcCnt) || 0) + (parseInt(s.monthlyMobileQcCnt) || 0);
+                        return vol > mainVol && isSimilarKeyword(mainKw, s.relKeyword);
+                    });
+
+                    if (betterStat) {
+                        const betterVol = (parseInt(betterStat.monthlyPcQcCnt) || 0) + (parseInt(betterStat.monthlyMobileQcCnt) || 0);
+                        const matchedSub = subKws.find(s => stripSpace(s) === betterStat.relKeyword);
+                        mainKw = matchedSub || betterStat.relKeyword;
+                        mainVol = betterVol;
                     }
+
 
                     const subKwDetails = subKws.map(kw => ({
                         keyword: kw,
@@ -1115,8 +1133,8 @@ async function executePipeline(post) {
             try { keywordConfig = JSON.parse(parts[1]); } catch (e) { }
         }
 
-        // Gemini API key — user must have their own key registered
-        const resolvedApiKey = post.profiles?.gemini_api_key || null;
+        // Gemini API key — user profile key or env fallback
+        const resolvedApiKey = post.profiles?.gemini_api_key || process.env.GEMINI_API_KEY || null;
 
         // ─── Check if content is already pre-generated from preview ─────────
         const preGenerated = post.content_json?._pre_generated;
@@ -1371,10 +1389,10 @@ async function executePipeline(post) {
             if (!resolvedApiKey) throw new Error('제미나이 API 키가 등록되지 않았습니다. 설정 > 프로필에서 Gemini API 키를 먼저 등록해주세요.');
             console.log(`[Engine] content.thumbnail_text 값: ${JSON.stringify(content.thumbnail_text)}`);
             const imageSource = post.content_json?.image_source || keywordConfig.image_source || 'gemini';
-            // 무료 이미지 모드: 사용자가 미리 선택한 Pexels URL을 image_paths로 전달
-            const selectedPexelsImages = imageSource === 'stock'
-                ? (post.content_json?.selected_pexels_images || []).filter(Boolean)
-                : [];
+            // 사용자가 미리 선택/업로드한 이미지(무료 이미지 모드의 Pexels 선택 또는 에디터에서
+            // 직접 업로드한 사진)가 있으면 이미지 소스 모드와 무관하게 항상 그 이미지를 우선 사용한다.
+            // (이미지 소스가 'gemini'로 남아있어도 직접 올린 사진이 조용히 무시되지 않도록)
+            const selectedPexelsImages = (post.content_json?.selected_pexels_images || []).filter(Boolean);
             const resolvedImagePaths = selectedPexelsImages.length > 0
                 ? selectedPexelsImages
                 : (dataAsset.image_paths || []);
@@ -1672,7 +1690,10 @@ async function uploadImagesToStorage(postId, imagePaths) {
 
     await ensureStorageBucket();
 
-    const mimeTypes = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif' };
+    const mimeTypes = {
+        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif',
+        '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm', '.avi': 'video/x-msvideo',
+    };
     const uploadedUrls = [];
 
     for (let i = 0; i < imagePaths.length; i++) {
@@ -1748,7 +1769,7 @@ async function prepareForExtension(post, extension_device_id, holdForApproval = 
         try { keywordConfig = JSON.parse(parts[1]); } catch (_) {}
     }
 
-    const resolvedApiKey = post.profiles?.gemini_api_key || null;
+    const resolvedApiKey = post.profiles?.gemini_api_key || process.env.GEMINI_API_KEY || null;
     if (!resolvedApiKey) throw new Error('제미나이 API 키가 등록되지 않았습니다. 설정 > 프로필에서 Gemini API 키를 먼저 등록해주세요.');
     const preGenerated = post.content_json?._pre_generated;
     let content, dataAsset;
@@ -1833,10 +1854,9 @@ async function prepareForExtension(post, extension_device_id, holdForApproval = 
     } else {
         await updateProgress(post.id, '이미지 생성', 'AI 이미지를 생성하고 있습니다...', 55, '약 2분 남음');
         const imageSourceExt = keywordConfig.image_source || post.content_json?.image_source || 'gemini';
-        isGeminiImages = imageSourceExt === 'gemini';
-        const selectedPexelsImages = imageSourceExt === 'stock'
-            ? (post.content_json?.selected_pexels_images || []).filter(Boolean)
-            : [];
+        // 사용자가 미리 선택/업로드한 이미지가 있으면 이미지 소스 모드와 무관하게 항상 우선 사용
+        const selectedPexelsImages = (post.content_json?.selected_pexels_images || []).filter(Boolean);
+        isGeminiImages = imageSourceExt === 'gemini' && selectedPexelsImages.length === 0;
         const resolvedImagePathsExt = selectedPexelsImages.length > 0
             ? selectedPexelsImages
             : (dataAsset?.image_paths || []);
@@ -1943,7 +1963,23 @@ async function prepareForExtension(post, extension_device_id, holdForApproval = 
 
     await updateProgress(post.id, '확장프로그램 대기', '확장 프로그램이 발행을 처리합니다. 크롬 브라우저에서 발행 중...', 80, '확장프로그램 처리 중...');
     extLog('info', `[Extension Prepare] ✅ Post ${post.id} ready. Images: ${(assetReport.images || []).length}, business.footer_components: ${business.footer_components?.length ?? 0}, scheduled_at: ${post.scheduled_at || 'none'}`);
+
+    // 로컬 개발 환경 시 확장 프로그램 팝업 연결 없이도 80% 상태에서 멈추지 않고
+    // 백엔드 Puppeteer가 직접 100% 자동 발행을 마무리하도록 자동 폴백 처리
+    if (!holdForApproval) {
+        extLog('info', `[Local Auto-Publish] Local environment auto-fallback triggered for post ${post.id}`);
+        setTimeout(() => {
+            postExecutionQueue.add(async () => {
+                const { data: freshPost } = await supabase.from('posts').select('*, naver_accounts(*)').eq('id', post.id).single();
+                if (freshPost && freshPost.status === 'pending_extension') {
+                    console.log(`[Local Auto-Publish] Starting Puppeteer execution for post: ${freshPost.id}`);
+                    await executePipeline(freshPost);
+                }
+            }).catch(err => console.error('[Local Auto-Publish Error]', err.message));
+        }, 3000);
+    }
 }
+
 
 // GET /api/extension/jobs — 해당 유저의 pending_extension 작업 목록
 app.get('/api/extension/jobs', extensionAuthMiddleware, async (req, res) => {

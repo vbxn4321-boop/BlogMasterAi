@@ -1222,6 +1222,210 @@ async function uploadImageInTab(tabId, imageUrl, link = null, isAiGenerated = fa
   return true;
 }
 
+// 동영상 업로드. module4_executor.js(Puppeteer)의 _uploadVideo와 같은 네이버 UI 흐름
+// (툴바 "동영상" 클릭 → 패널의 "동영상 추가" 클릭 → 파일선택 → 제목 입력 → 완료)을
+// chrome.debugger CDP 방식으로 재구현한 것. "동영상 추가" 버튼은 에디터 프레임이 아니라
+// 최상위 페이지에 뜨는 경우가 많아 두 컨텍스트를 모두 탐색한다.
+async function uploadVideoInTab(tabId, editorFrameId, videoUrl) {
+  // 1. 동영상을 로컬 임시 파일로 다운로드
+  const ext = (videoUrl.split('?')[0].match(/\.(mp4|mov|avi|webm)$/i) || [, 'mp4'])[1].toLowerCase();
+  let downloadId;
+  try {
+    downloadId = await new Promise((resolve, reject) => {
+      chrome.downloads.download({
+        url: videoUrl,
+        filename: `blogmaster_video_${Date.now()}.${ext}`,
+        saveAs: false,
+        conflictAction: 'overwrite',
+      }, (id) => {
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        else resolve(id);
+      });
+    });
+  } catch (e) {
+    console.warn('[VIDEO] Download start failed:', e.message);
+    return false;
+  }
+
+  const localPath = await new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      chrome.downloads.onChanged.removeListener(dl);
+      resolve(null);
+    }, 120000); // 동영상은 다운로드도 오래 걸릴 수 있음
+    function dl(delta) {
+      if (delta.id !== downloadId) return;
+      if (delta.state?.current === 'complete') {
+        chrome.downloads.onChanged.removeListener(dl);
+        clearTimeout(timer);
+        chrome.downloads.search({ id: downloadId }, ([item]) => resolve(item?.filename || null));
+      } else if (delta.state?.current === 'interrupted') {
+        chrome.downloads.onChanged.removeListener(dl);
+        clearTimeout(timer);
+        resolve(null);
+      }
+    }
+    chrome.downloads.onChanged.addListener(dl);
+  });
+
+  if (!localPath) {
+    console.warn('[VIDEO] Video download failed or timed out');
+    return false;
+  }
+  console.warn('[VIDEO] Downloaded to:', localPath);
+
+  // 두 컨텍스트(에디터 프레임 / 최상위 탭) 모두에서 좌표를 찾는 헬퍼
+  const findCoordsInAnyContext = async (fn) => {
+    const inFrame = await getAbsoluteCoords(tabId, editorFrameId, fn);
+    if (inFrame) return inFrame;
+    return await evalInTab(tabId, fn);
+  };
+
+  // 2. 상단 툴바 "동영상" 버튼 클릭 → 패널 열림
+  const videoBtnCoords = await findCoordsInAnyContext(() => {
+    const selectors = ['button.se-video-toolbar-button', '.se-toolbar-item-video button'];
+    let btn = null;
+    for (const sel of selectors) { btn = document.querySelector(sel); if (btn) break; }
+    if (!btn) {
+      btn = Array.from(document.querySelectorAll('.se-toolbar-item button, .se-toolbar button'))
+        .find(b => (b.innerText || b.title || b.getAttribute('aria-label') || '').trim().includes('동영상'));
+    }
+    if (!btn || btn.offsetWidth === 0) return null;
+    btn.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+    const r = btn.getBoundingClientRect();
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+  });
+
+  if (!videoBtnCoords) {
+    console.warn('[VIDEO] Toolbar button not found');
+    chrome.downloads.removeFile(downloadId, () => {});
+    return false;
+  }
+  await clickAtCoords(tabId, videoBtnCoords.x, videoBtnCoords.y);
+  console.warn('[VIDEO] 동영상 툴바 버튼 클릭 완료 — 패널 열림 대기...');
+  await sleep(2000);
+
+  // 3. 패널 내 "동영상 추가" 버튼 찾기
+  const addVideoBtnCoords = await findCoordsInAnyContext(() => {
+    const selectors = ['button.nvu_btn_append.nvu_local', 'button[data-logcode="lmvup.attmv"]', 'button.nvu_btn_append'];
+    let btn = null;
+    for (const sel of selectors) { btn = document.querySelector(sel); if (btn) break; }
+    if (!btn) {
+      btn = Array.from(document.querySelectorAll('button, a')).find(b => {
+        const t = (b.innerText || b.textContent || '').trim();
+        const r = b.getBoundingClientRect();
+        return t.includes('동영상 추가') && r.width > 0 && r.height > 0;
+      });
+    }
+    if (!btn) return null;
+    const r = btn.getBoundingClientRect();
+    if (!r.width) return null;
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+  });
+
+  if (!addVideoBtnCoords) {
+    console.warn('[VIDEO] "동영상 추가" 버튼을 찾을 수 없습니다');
+    chrome.downloads.removeFile(downloadId, () => {});
+    return false;
+  }
+
+  // 4. 파일 선택기 인터셉트 → "동영상 추가" 클릭 → 파일 지정
+  await chrome.debugger.sendCommand({ tabId }, 'Page.enable').catch(() => {});
+  await chrome.debugger.sendCommand({ tabId }, 'DOM.enable').catch(() => {});
+  await chrome.debugger.sendCommand({ tabId }, 'Page.setInterceptFileChooserDialog', { enabled: true });
+
+  const fileChooserPromise = new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      chrome.debugger.onEvent.removeListener(listener);
+      resolve(null);
+    }, 15000);
+    function listener(source, method, params) {
+      if (source.tabId === tabId && method === 'Page.fileChooserOpened') {
+        chrome.debugger.onEvent.removeListener(listener);
+        clearTimeout(timer);
+        resolve(params.backendNodeId || null);
+      }
+    }
+    chrome.debugger.onEvent.addListener(listener);
+  });
+
+  await clickAtCoords(tabId, addVideoBtnCoords.x, addVideoBtnCoords.y);
+  const backendNodeId = await fileChooserPromise;
+  console.warn('[VIDEO] fileChooserOpened backendNodeId:', backendNodeId);
+
+  let uploadTriggered = false;
+  if (backendNodeId) {
+    try {
+      await chrome.debugger.sendCommand({ tabId }, 'DOM.setFileInputFiles', { files: [localPath], backendNodeId });
+      uploadTriggered = true;
+      console.warn('[VIDEO] Files set via DOM.setFileInputFiles');
+    } catch (e) {
+      console.warn('[VIDEO] DOM.setFileInputFiles failed:', e.message);
+    }
+  } else {
+    console.warn('[VIDEO] File chooser not intercepted (timeout or no event)');
+  }
+  await chrome.debugger.sendCommand({ tabId }, 'Page.setInterceptFileChooserDialog', { enabled: false }).catch(() => {});
+
+  if (!uploadTriggered) {
+    chrome.downloads.removeFile(downloadId, () => {});
+    return false;
+  }
+
+  // 5. 업로드 진행 대기 — 동영상은 이미지보다 오래 걸림 (최대 3분)
+  await sleep(6000);
+  for (let i = 0; i < 90; i++) {
+    const loading = await evalInTab(tabId, () =>
+      !!document.querySelector('.se-video-loading, .se-media-loading, .se-placeholder-video-loading, [class*="progress"], [class*="uploading"]')
+    ).catch(() => false);
+    if (!loading) break;
+    await sleep(2000);
+  }
+  await sleep(2000);
+
+  // 6. 제목 입력 (입력해야 완료 버튼이 활성화됨) → 완료 버튼 클릭
+  const titleFilled = await evalInTab(tabId, () => {
+    const candidates = Array.from(document.querySelectorAll('input[type="text"], input:not([type]), textarea'));
+    const input = candidates.find(el => {
+      const ph = (el.placeholder || '').toLowerCase();
+      const cls = (el.className || '').toLowerCase();
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && (ph.includes('제목') || cls.includes('title'));
+    });
+    if (!input) return false;
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+      || Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+    nativeSetter?.call(input, '동영상');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }).catch(() => false);
+  console.warn('[VIDEO] 제목 입력:', titleFilled);
+  await sleep(500);
+
+  const completeBtnCoords = await evalInTab(tabId, () => {
+    const btns = Array.from(document.querySelectorAll('button'));
+    const btn = btns.find(b => {
+      const t = (b.innerText || b.textContent || '').trim();
+      const r = b.getBoundingClientRect();
+      return (t === '완료' || t.includes('완료')) && r.width > 0 && r.height > 0 && !b.disabled;
+    });
+    if (!btn) return null;
+    const r = btn.getBoundingClientRect();
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+  }).catch(() => null);
+
+  if (completeBtnCoords) {
+    await clickAtCoords(tabId, completeBtnCoords.x, completeBtnCoords.y);
+    console.warn('[VIDEO] 완료 버튼 클릭');
+    await sleep(2500);
+  } else {
+    console.warn('[VIDEO] 완료 버튼을 찾지 못함 (제목 미입력 등으로 비활성 상태일 수 있음)');
+  }
+
+  chrome.downloads.removeFile(downloadId, () => {});
+  return true;
+}
+
 // 인용구 삽입 (6가지 스타일 전체 지원)
 async function insertQuoteInTab(tabId, editorFrameId, type, text) {
   // 스타일 셀렉터의 실제 값(quotation_bubble/quotation_underline/quotation_corner)은
@@ -1965,8 +2169,12 @@ async function runEditorAutomation(tabId, jobPayload) {
       const imgUrl = imageUrls[block.id - 1];
       const imgLink = business?.image_links?.[block.id] || business?.image_links?.[`anchor${block.id}`] || null;
       const isAiImg = aiGeneratedIndices.includes(block.id - 1);
-      if (imgUrl) await uploadImageInTab(tabId, imgUrl, imgLink, isAiImg);
-      await sendKey(tabId, 'Return', 'Enter', 13); // 이미지 뒤 1칸
+      // 업로드된 파일 URL의 확장자로 동영상/이미지를 구분한다 (module4_executor.js의
+      // isVideo 판별 방식과 동일 — 확장자만으로 충분히 안정적으로 구분 가능).
+      const isVideoUrl = imgUrl && /\.(mp4|mov|avi|webm)(\?|$)/i.test(imgUrl);
+      if (imgUrl && isVideoUrl) await uploadVideoInTab(tabId, eFid, imgUrl);
+      else if (imgUrl) await uploadImageInTab(tabId, imgUrl, imgLink, isAiImg);
+      await sendKey(tabId, 'Return', 'Enter', 13); // 이미지/동영상 뒤 1칸
     } else if (block.type.startsWith('quote_')) {
       await insertQuoteInTab(tabId, eFid, block.type, block.content);
       await sendKey(tabId, 'Return', 'Enter', 13); // 인용구 뒤 1칸

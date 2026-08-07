@@ -664,6 +664,19 @@ body {
     to   { transform: rotate(360deg); }
 }
 
+/* 원고 생성 중 로딩 애니메이션 — B 로고가 제자리에서 위→아래→좌→우 순서로 오간다 */
+@keyframes bWander {
+    0%    { transform: translate(0, 0) rotate(0deg); }
+    12.5% { transform: translate(0, -16px) rotate(-8deg); }
+    25%   { transform: translate(0, 0) rotate(0deg); }
+    37.5% { transform: translate(0, 16px) rotate(8deg); }
+    50%   { transform: translate(0, 0) rotate(0deg); }
+    62.5% { transform: translate(-16px, 0) rotate(-8deg); }
+    75%   { transform: translate(0, 0) rotate(0deg); }
+    87.5% { transform: translate(16px, 0) rotate(8deg); }
+    100%  { transform: translate(0, 0) rotate(0deg); }
+}
+
 @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.4; transform: scale(0.85); }

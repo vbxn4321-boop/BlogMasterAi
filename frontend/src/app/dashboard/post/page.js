@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -65,12 +65,98 @@ const Icons = {
 };
 
 const QUOTE_STYLES = [
-    { key: 'QUOTE_VERTICAL',       label: '버티컬',     icon: '▌', desc: '왼쪽 세로선 강조 스타일' },
-    { key: 'QUOTE_DEFAULT',        label: '따옴표',     icon: '❝', desc: '큰따옴표 인용 스타일' },
-    { key: 'QUOTE_POSTIT',         label: '포스트잇',   icon: '🟨', desc: '메모지 느낌의 스타일' },
-    { key: 'QUOTE_BALLOON',        label: '말풍선',     icon: '💬', desc: '둥근 말풍선 스타일' },
-    { key: 'QUOTE_LINE_QUOTATION', label: '라인&따옴표', icon: '—', desc: '밑줄과 따옴표 조합 스타일' },
-    { key: 'QUOTE_FRAME',          label: '프레임',     icon: '▢', desc: '테두리 박스 스타일' },
+    { key: 'QUOTE_VERTICAL',       label: '버티컬',     desc: '왼쪽 세로선 강조 스타일' },
+    { key: 'QUOTE_DEFAULT',        label: '따옴표',     desc: '큰따옴표 인용 스타일' },
+    { key: 'QUOTE_POSTIT',         label: '포스트잇',   desc: '메모지 느낌의 스타일' },
+    { key: 'QUOTE_BALLOON',        label: '말풍선',     desc: '둥근 말풍선 스타일' },
+    { key: 'QUOTE_LINE_QUOTATION', label: '라인&따옴표', desc: '밑줄과 따옴표 조합 스타일' },
+    { key: 'QUOTE_FRAME',          label: '프레임',     desc: '테두리 박스 스타일' },
+];
+
+// 네이버 스마트에디터 ONE의 실제 인용구 툴바 아이콘(66 따옴표, 컬러 블록, 모서리 브라켓 등)을
+// 최대한 그대로 재현한 아이콘 세트 — 이모지 대신 SVG로 그려 다크/라이트 어디서나 또렷하게 보인다.
+function QuoteIcon({ styleKey, size = 16 }) {
+    const common = { width: size, height: size, viewBox: '0 0 24 24', xmlns: 'http://www.w3.org/2000/svg' };
+    switch (styleKey) {
+        case 'QUOTE_VERTICAL':
+            return (
+                <svg {...common} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="5" y1="5" x2="5" y2="19" />
+                    <line x1="10" y1="8" x2="20" y2="8" />
+                    <line x1="10" y1="13" x2="18" y2="13" />
+                    <line x1="10" y1="18" x2="19" y2="18" />
+                </svg>
+            );
+        case 'QUOTE_DEFAULT':
+            return (
+                <svg {...common} fill="currentColor">
+                    <path d="M7.5 7C5.6 7 4 8.7 4 11.1c0 2.3 1.5 4 3.4 4 .2 0 .4 0 .6-.1-.4 1.5-1.4 2.5-2.7 3.1l.6 1.3c2.4-.9 4-2.8 4-5.8v-.4C9.9 10.4 9.2 7 7.5 7Zm9 0c-1.9 0-3.5 1.7-3.5 4.1 0 2.3 1.5 4 3.4 4 .2 0 .4 0 .6-.1-.4 1.5-1.4 2.5-2.7 3.1l.6 1.3c2.4-.9 4-2.8 4-5.8v-.4c0-3.1-1.4-6.1-2.4-6.1Z" />
+                </svg>
+            );
+        case 'QUOTE_POSTIT':
+            return (
+                <svg {...common}>
+                    <rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor" />
+                </svg>
+            );
+        case 'QUOTE_BALLOON':
+            return (
+                <svg {...common} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                </svg>
+            );
+        case 'QUOTE_LINE_QUOTATION':
+            return (
+                <svg {...common}>
+                    <path fill="currentColor" d="M8 6c-2 0-3.5 1.6-3.5 4.2S6 14.7 8 14.7c.2 0 .5 0 .7-.1-.4 1.7-1.5 2.8-2.9 3.5l.6 1.3c2.5-1 4.1-3 4.1-6.3v-.4C10.5 9.4 9.7 6 8 6Z" />
+                    <line x1="3" y1="19.5" x2="21" y2="19.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+            );
+        case 'QUOTE_FRAME':
+            return (
+                <svg {...common} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 9V5a1 1 0 0 1 1-1h4" />
+                    <path d="M20 15v4a1 1 0 0 1-1 1h-4" />
+                </svg>
+            );
+        default:
+            return null;
+    }
+}
+
+const NAVER_OGQ_STICKERS = [
+    // 문 (Moon)
+    { id: '1', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/1/android/sticker.png' },
+    { id: '2', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/2/android/sticker.png' },
+    { id: '3', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/3/android/sticker.png' },
+    { id: '4', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/4/android/sticker.png' },
+    { id: '5', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/5/android/sticker.png' },
+    { id: '6', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/6/android/sticker.png' },
+    { id: '7', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/7/android/sticker.png' },
+    { id: '9', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/9/android/sticker.png' },
+
+    // 코니 (Cony - 토끼)
+    { id: '25', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/25/android/sticker.png' },
+    { id: '26', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/26/android/sticker.png' },
+    { id: '27', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/27/android/sticker.png' },
+    { id: '28', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/28/android/sticker.png' },
+    { id: '31', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/31/android/sticker.png' },
+
+    // 브라운 (Brown - 곰돌이)
+    { id: '8', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/8/android/sticker.png' },
+    { id: '33', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/33/android/sticker.png' },
+    { id: '35', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/35/android/sticker.png' },
+    { id: '36', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/36/android/sticker.png' },
+    { id: '37', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/37/android/sticker.png' },
+    { id: '39', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/39/android/sticker.png' },
+    { id: '40', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/40/android/sticker.png' },
+
+    // 제임스 & 보스
+    { id: '13', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/13/android/sticker.png' },
+    { id: '14', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/14/android/sticker.png' },
+    { id: '17', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/17/android/sticker.png' },
+    { id: '18', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/18/android/sticker.png' },
+    { id: '21', url: 'https://sdl-stickershop.line.naver.jp/stickershop/v1/sticker/21/android/sticker.png' },
 ];
 
 const QUOTE_TAG_PATTERN = /\[(QUOTE_VERTICAL|QUOTE_DEFAULT|QUOTE_POSTIT|QUOTE_BALLOON|QUOTE_LINE_QUOTATION|QUOTE_FRAME)\]([\s\S]*?)\[\/\1\]/gi;
@@ -80,14 +166,170 @@ const QUOTE_TAG_PATTERN = /\[(QUOTE_VERTICAL|QUOTE_DEFAULT|QUOTE_POSTIT|QUOTE_BA
 // 비슷하게 꾸며서 보여준다. 편집 모드(textarea)는 원본 태그 그대로 편집해야 하므로 대상 아님.
 const BLOCK_TAG_REGEX = /\[(QUOTE_VERTICAL|QUOTE_DEFAULT|QUOTE_POSTIT|QUOTE_BALLOON|QUOTE_LINE_QUOTATION|QUOTE_FRAME)\]([\s\S]*?)\[\/\1\]|\[IMAGE_ANCHOR_(\d+)\]|\[BUSINESS_MAP_BLOCK\]|\[BUSINESS_CTA_BANNER\]/gi;
 
+/* ─── WYSIWYG 변환 유틸리티 ─── */
+// 네이버 스마트에디터 ONE 인용구 6종 실제 모양 재현 (말풍선 꼬리/접힌 모서리/모서리 브라켓 등은
+// 절대배치 삼각형/보더 트릭으로 구현). 본문(data-quote-text)과 출처(data-quote-source)는 각각
+// contenteditable="true"인 "편집 가능 섬"이라, 바깥 div가 false여도 안에서는 바로 타이핑된다.
+const QUOTE_RENDER = {
+    QUOTE_BALLOON: {
+        hasSource: true,
+        wrap: (textHtml, sourceHtml) => `<div contenteditable="false" data-quote="QUOTE_BALLOON" style="position:relative;width:80%;box-sizing:border-box;margin:24px auto;padding:40px 32px;border:1.5px solid #cbd5e1;border-radius:8px;background:#ffffff;text-align:center;">` +
+            `<div contenteditable="true" data-quote-text style="font-size:15px;color:#334155;line-height:1.7;outline:none;min-height:1.4em;">${textHtml}</div>` +
+            `<div contenteditable="true" data-quote-source style="font-size:12px;color:#94a3b8;margin-top:8px;outline:none;min-height:1.2em;">${sourceHtml}</div>` +
+            `<div style="position:absolute;bottom:-11px;left:24px;width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:11px solid #cbd5e1;"></div>` +
+            `<div style="position:absolute;bottom:-9px;left:26px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:9px solid #ffffff;"></div>` +
+            `</div>`,
+    },
+    QUOTE_DEFAULT: {
+        hasSource: true,
+        wrap: (textHtml, sourceHtml) => `<div contenteditable="false" data-quote="QUOTE_DEFAULT" style="width:80%;box-sizing:border-box;margin:24px auto;text-align:center;padding:8px 16px;">` +
+            `<div style="font-size:34px;color:#cbd5e1;line-height:1;font-family:Georgia,serif;">&ldquo;</div>` +
+            `<div contenteditable="true" data-quote-text style="font-size:16px;color:#334155;font-weight:500;line-height:1.6;outline:none;min-height:1.4em;">${textHtml}</div>` +
+            `<div contenteditable="true" data-quote-source style="font-size:13px;color:#94a3b8;margin-top:8px;outline:none;min-height:1.2em;">${sourceHtml}</div>` +
+            `<div style="font-size:34px;color:#cbd5e1;line-height:1;font-family:Georgia,serif;transform:rotate(180deg);display:inline-block;margin-top:4px;">&ldquo;</div>` +
+            `</div>`,
+    },
+    QUOTE_VERTICAL: {
+        hasSource: true,
+        wrap: (textHtml, sourceHtml) => `<div contenteditable="false" data-quote="QUOTE_VERTICAL" style="width:100%;box-sizing:border-box;margin:24px 0;padding:2px 0 2px 18px;border-left:4px solid #333333;">` +
+            `<div contenteditable="true" data-quote-text style="font-size:16px;color:#1e293b;font-weight:500;line-height:1.6;outline:none;min-height:1.4em;">${textHtml}</div>` +
+            `<div contenteditable="true" data-quote-source style="font-size:12px;color:#94a3b8;margin-top:4px;outline:none;min-height:1.2em;">${sourceHtml}</div>` +
+            `</div>`,
+    },
+    QUOTE_LINE_QUOTATION: {
+        hasSource: true,
+        wrap: (textHtml, sourceHtml) => `<div contenteditable="false" data-quote="QUOTE_LINE_QUOTATION" style="width:100%;box-sizing:border-box;margin:24px 0;padding:40px 32px;border:1px solid #e2e8f0;border-radius:4px;">` +
+            `<div style="font-size:24px;color:#cbd5e1;line-height:1;font-family:Georgia,serif;margin-bottom:6px;">&ldquo;</div>` +
+            `<div contenteditable="true" data-quote-text style="font-size:15px;color:#334155;line-height:1.6;outline:none;min-height:1.4em;">${textHtml}</div>` +
+            `<div contenteditable="true" data-quote-source style="font-size:12px;color:#94a3b8;margin-top:6px;outline:none;min-height:1.2em;">${sourceHtml}</div>` +
+            `<div style="border-bottom:1px solid #e2e8f0;margin-top:14px;"></div>` +
+            `</div>`,
+    },
+    QUOTE_POSTIT: {
+        hasSource: true,
+        wrap: (textHtml, sourceHtml) => `<div contenteditable="false" data-quote="QUOTE_POSTIT" style="position:relative;width:80%;box-sizing:border-box;margin:24px auto;padding:40px 32px;border:1px solid #e2e8f0;overflow:hidden;">` +
+            `<div style="position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 18px 18px 0;border-color:transparent #e2e8f0 transparent transparent;"></div>` +
+            `<div style="position:absolute;top:1px;right:1px;width:0;height:0;border-style:solid;border-width:0 16px 16px 0;border-color:transparent #ffffff transparent transparent;"></div>` +
+            `<div contenteditable="true" data-quote-text style="font-size:15px;color:#334155;text-align:center;line-height:1.6;outline:none;min-height:1.4em;">${textHtml}</div>` +
+            `<div contenteditable="true" data-quote-source style="font-size:12px;color:#94a3b8;text-align:center;margin-top:8px;outline:none;min-height:1.2em;">${sourceHtml}</div>` +
+            `</div>`,
+    },
+    QUOTE_FRAME: {
+        hasSource: true,
+        wrap: (textHtml, sourceHtml) => `<div contenteditable="false" data-quote="QUOTE_FRAME" style="position:relative;width:80%;box-sizing:border-box;margin:24px auto;padding:24px 30px;">` +
+            `<div style="position:absolute;top:2px;left:2px;width:18px;height:18px;border-top:2.5px solid #334155;border-left:2.5px solid #334155;"></div>` +
+            `<div style="position:absolute;bottom:2px;right:2px;width:18px;height:18px;border-bottom:2.5px solid #334155;border-right:2.5px solid #334155;"></div>` +
+            `<div contenteditable="true" data-quote-text style="font-size:15px;color:#334155;text-align:center;line-height:1.6;outline:none;min-height:1.4em;">${textHtml}</div>` +
+            `<div contenteditable="true" data-quote-source style="font-size:12px;color:#94a3b8;text-align:center;margin-top:8px;outline:none;min-height:1.2em;">${sourceHtml}</div>` +
+            `</div>`,
+    },
+};
+const QUOTE_SOURCE_SPLIT = /\n출처:\s*([\s\S]*)$/;
+
+function escapeHtml(str) {
+    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// 내부 마크업 → WYSIWYG HTML
+function markupToHtml(body, customUploadedImages, imagePrompts) {
+    if (!body) return '';
+    let html = body;
+    // escape HTML entities first (but preserve newlines)
+    html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // [B]...[/B] → <strong> (font-weight: 650 for comfortable reading)
+    html = html.replace(/\[B\]([\s\S]*?)\[\/B\]/gi, '<strong style="font-weight:650;color:#0f172a">$1</strong>');
+    // Clean orphan stray [B] or [/B] tags
+    html = html.replace(/\[\/?B\]/gi, '');
+    // [QUOTE_*]...[/QUOTE_*] → 실제 네이버 모양의 편집 가능한 인용구 블록
+    for (const [qk, renderer] of Object.entries(QUOTE_RENDER)) {
+        const re = new RegExp(`\\[${qk}\\]([\\s\\S]*?)\\[\\/${qk}\\]`, 'gi');
+        html = html.replace(re, (_, content) => {
+            const sourceMatch = content.match(QUOTE_SOURCE_SPLIT);
+            const mainText = (sourceMatch ? content.slice(0, sourceMatch.index) : content).trim();
+            const sourceText = sourceMatch ? sourceMatch[1].trim() : '';
+            return renderer.wrap(mainText, sourceText);
+        });
+    }
+    // [IMAGE_ANCHOR_N] → image or placeholder
+    html = html.replace(/\[IMAGE_ANCHOR_(\d+)\]/gi, (_, num) => {
+        const idx = parseInt(num, 10) - 1;
+        const src = customUploadedImages && customUploadedImages[idx];
+        if (src) {
+            return `<div contenteditable="false" data-image-anchor="${num}" style="margin:20px 0;text-align:center;"><img src="${src}" alt="이미지 ${num}" style="max-width:100%;max-height:400px;border-radius:10px;border:2px solid #00b894;box-shadow:0 6px 20px rgba(0,0,0,0.12);"/><div style="background:#00b894;color:#fff;display:inline-block;padding:3px 10px;border-radius:16px;font-size:11px;font-weight:700;margin-top:6px;">지정 이미지 ${num}</div></div>`;
+        }
+        const prompt = imagePrompts && imagePrompts[idx];
+        const promptHtml = prompt
+            ? `<div style="font-weight:700;color:#00b894;margin-bottom:4px;">이미지 ${num}</div><div style="font-size:12px;color:#64748b;line-height:1.5;">${escapeHtml(prompt)}</div>`
+            : `[ 이미지 ${num} 삽입 위치 ]`;
+        return `<div contenteditable="false" data-image-anchor="${num}" style="margin:20px 0;padding:14px 18px;border-radius:10px;border:1px dashed #cbd5e1;background:#f8fafc;font-size:13px;color:#64748b;text-align:center;">${promptHtml}</div>`;
+    });
+    // [STICKER_id] → official Naver transparent PNG sticker image
+    for (const s of NAVER_OGQ_STICKERS) {
+        const re = new RegExp(`\\[STICKER_${s.id}\\]`, 'gi');
+        html = html.replace(re, `<div contenteditable="false" data-sticker="${s.id}" style="margin:16px auto 16px 0;display:block;width:fit-content;user-select:none;position:relative;cursor:pointer;"><img src="${s.url}" alt="스티커" style="width:140px;height:140px;display:block;object-fit:contain;" /></div>`);
+    }
+    // [BUSINESS_MAP_BLOCK]
+    html = html.replace(/\[BUSINESS_MAP_BLOCK\]/gi,
+        '<div contenteditable="false" data-block="map" style="margin:20px 0;padding:18px 20px;border-radius:12px;border:1.5px dashed #00b894;background:#f0fdf4;color:#1e293b;text-align:center;font-size:13px;font-weight:700;">📍 장소(지도) 블록</div>'
+    );
+    // [BUSINESS_CTA_BANNER]
+    html = html.replace(/\[BUSINESS_CTA_BANNER\]/gi,
+        '<div contenteditable="false" data-block="cta" style="margin:20px 0;padding:18px 20px;border-radius:12px;border:1.5px dashed #00b894;background:#f0fdf4;color:#1e293b;text-align:center;font-size:13px;font-weight:700;">📢 CTA 상담 배너</div>'
+    );
+    // newlines → <br> (but not inside block elements we just created)
+    // Split by our block divs, only convert newlines in text parts
+    html = html.replace(/\n/g, '<br>');
+    return html;
+}
+
+// WYSIWYG HTML → 내부 마크업
+function htmlToMarkup(html) {
+    if (!html) return '';
+    let text = html;
+    // <strong>/<b> → [B]...[/B]
+    text = text.replace(/<(?:strong|b)(?:\s[^>]*)?>([\s\S]*?)<\/(?:strong|b)>/gi, '[B]$1[/B]');
+    // 인용구, data-image-anchor 블록은 모두 안에 중첩 div를 포함할 수 있어 regex로 안전하게
+    // 못 뽑아낸다 — syncEditorToState에서 DOM을 직접 순회해 [QUOTE_*]...[/QUOTE_*],
+    // [IMAGE_ANCHOR_N] 플레이스홀더로 미리 치환해두므로 여기선 손대지 않는다.
+    // data-sticker divs → [STICKER_id]
+    for (const s of NAVER_OGQ_STICKERS) {
+        const re = new RegExp(`<div[^>]*data-sticker="${s.id}"[^>]*>[\\s\\S]*?<\\/div>`, 'gi');
+        text = text.replace(re, `[STICKER_${s.id}]`);
+    }
+    // data-block map/cta
+    text = text.replace(/<div[^>]*data-block="map"[^>]*>[\s\S]*?<\/div>/gi, '[BUSINESS_MAP_BLOCK]');
+    text = text.replace(/<div[^>]*data-block="cta"[^>]*>[\s\S]*?<\/div>/gi, '[BUSINESS_CTA_BANNER]');
+    // <i>/<em> → keep as-is (plain text)
+    text = text.replace(/<(?:em|i)(?:\s[^>]*)?>([\s\S]*?)<\/(?:em|i)>/gi, '$1');
+    // <u> → keep
+    text = text.replace(/<u(?:\s[^>]*)?>([\s\S]*?)<\/u>/gi, '$1');
+    // <br> → newline
+    text = text.replace(/<br\s*\/?>/gi, '\n');
+    // <div> → newline (contentEditable wraps lines in divs)
+    text = text.replace(/<\/div>/gi, '\n');
+    text = text.replace(/<div[^>]*>/gi, '');
+    // <p> → newline
+    text = text.replace(/<\/p>/gi, '\n');
+    text = text.replace(/<p[^>]*>/gi, '');
+    // strip remaining HTML tags
+    text = text.replace(/<[^>]+>/g, '');
+    // decode HTML entities
+    text = text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"');
+    // collapse multiple consecutive newlines to max 2
+    text = text.replace(/\n{3,}/g, '\n\n');
+    return text.trim();
+}
+
 function renderInlineText(text, keyPrefix) {
+    if (!text) return null;
     const parts = text.split(/(\[B\][\s\S]*?\[\/B\])/gi);
     return parts.map((part, i) => {
         const m = part.match(/^\[B\]([\s\S]*?)\[\/B\]$/i);
         if (m) {
-            return <strong key={`${keyPrefix}-b-${i}`} style={{ color: '#0f172a', fontWeight: 800 }}>{m[1]}</strong>;
+            return <strong key={`${keyPrefix}-b-${i}`} style={{ color: '#0f172a', fontWeight: 650 }}>{m[1]}</strong>;
         }
-        return part || null;
+        const clean = part ? part.replace(/\[\/?B\]/gi, '') : '';
+        return clean || null;
     });
 }
 
@@ -166,7 +408,7 @@ function renderPlaceholderBlock(key, label) {
     );
 }
 
-function renderPreviewBody(body, selectedAccount, formPublishOptions) {
+function renderPreviewBody(body, selectedAccount, formPublishOptions, customUploadedImages = []) {
     if (!body) return null;
     const regex = new RegExp(BLOCK_TAG_REGEX.source, 'gi');
     const nodes = [];
@@ -191,7 +433,29 @@ function renderPreviewBody(body, selectedAccount, formPublishOptions) {
         if (quoteStyle) {
             nodes.push(renderQuoteBlock(quoteStyle.toUpperCase(), quoteText.trim(), `q-${key++}`));
         } else if (anchorNum) {
-            nodes.push(renderPlaceholderBlock(`img-${key++}`, `이미지 ${anchorNum} 삽입 위치`));
+            const idx = parseInt(anchorNum, 10) - 1;
+            const userImg = customUploadedImages && customUploadedImages[idx];
+            if (userImg) {
+                nodes.push(
+                    <div key={`user-img-${key++}`} style={{ margin: '24px 0', textAlign: 'center' }}>
+                        <div style={{ display: 'inline-block', position: 'relative', maxWidth: '100%' }}>
+                            <img
+                                src={userImg}
+                                alt={`업로드 이미지 ${anchorNum}`}
+                                style={{ maxWidth: '100%', maxHeight: 450, borderRadius: 10, border: '2px solid #00b894', display: 'block', margin: '0 auto', boxShadow: '0 6px 20px rgba(0,0,0,0.12)' }}
+                            />
+                            <div style={{
+                                position: 'absolute', top: 10, left: 10, background: 'rgba(0,184,148,0.92)', color: '#ffffff',
+                                padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 800, letterSpacing: '0.5px', backdropFilter: 'blur(4px)'
+                            }}>
+                                📷 지정한 이미지 {anchorNum}
+                            </div>
+                        </div>
+                    </div>
+                );
+            } else {
+                nodes.push(renderPlaceholderBlock(`img-${key++}`, `이미지 ${anchorNum} 삽입 위치`));
+            }
         } else if (/BUSINESS_MAP_BLOCK/i.test(full)) {
             nodes.push(
                 <div key={`map-${key++}`} style={{
@@ -335,8 +599,9 @@ function QuoteStyleModal({ body, onClose, onApply }) {
                                         <span style={{
                                             fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 100,
                                             background: 'rgba(0,184,148,0.15)', color: 'var(--accent)',
+                                            display: 'inline-flex', alignItems: 'center', gap: 4,
                                         }}>
-                                            {styleInfo?.icon} {styleInfo?.label || h.style}
+                                            {styleInfo && <QuoteIcon styleKey={styleInfo.key} size={12} />} {styleInfo?.label || h.style}
                                         </span>
                                     </div>
                                 </div>
@@ -366,7 +631,9 @@ function QuoteStyleModal({ body, onClose, onApply }) {
                                             display: 'flex', alignItems: 'center', gap: 14,
                                         }}
                                     >
-                                        <span style={{ fontSize: 20, lineHeight: 1, width: 28, textAlign: 'center', flexShrink: 0 }}>{style.icon}</span>
+                                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, flexShrink: 0, color: isActive ? 'var(--accent)' : 'var(--text-primary)' }}>
+                                            <QuoteIcon styleKey={style.key} size={20} />
+                                        </span>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ fontSize: 13, fontWeight: 700, color: isActive ? 'var(--accent)' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
                                                 {style.label}
@@ -509,8 +776,381 @@ function NewPostContent() {
     const [progressLogs, setProgressLogs] = useState([]);
     const [isCancelling, setIsCancelling] = useState(false);
     const [processingStartTime, setProcessingStartTime] = useState(null);
-    const [isEditingPreview, setIsEditingPreview] = useState(false);
+    const [isEditingPreview, setIsEditingPreview] = useState(true);
     const [postQueue, setPostQueue] = useState([]);
+    const [quoteDropdownOpen, setQuoteDropdownOpen] = useState(false);
+    const [stickerDropdownOpen, setStickerDropdownOpen] = useState(false);
+    const [dividerDropdownOpen, setDividerDropdownOpen] = useState(false);
+    const [fontDropdownOpen, setFontDropdownOpen] = useState(false);
+    const [selectedFontName, setSelectedFontName] = useState('나눔고딕');
+    const [alignDropdownOpen, setAlignDropdownOpen] = useState(false);
+    const [selectedAlign, setSelectedAlign] = useState('left');
+    const [symbolModalOpen, setSymbolModalOpen] = useState(false);
+    const editorRef = useRef(null);
+    const editorSyncTimer = useRef(null);
+    const toolbarRef = useRef(null);
+
+    useEffect(() => {
+        const handleGlobalClick = (e) => {
+            if (toolbarRef.current && !toolbarRef.current.contains(e.target)) {
+                setStickerDropdownOpen(false);
+                setQuoteDropdownOpen(false);
+                setDividerDropdownOpen(false);
+                setFontDropdownOpen(false);
+                setAlignDropdownOpen(false);
+                setSymbolModalOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleGlobalClick);
+        return () => document.removeEventListener('mousedown', handleGlobalClick);
+    }, []);
+
+    const updateActivePreview = (field, value) => {
+        setPreviews(prev => {
+            const next = [...prev];
+            if (next[activePreviewIdx]) {
+                next[activePreviewIdx] = { ...next[activePreviewIdx], [field]: value };
+            }
+            return next;
+        });
+    };
+
+    // WYSIWYG 에디터 → 내부 마크업 동기화
+    const syncEditorToState = useCallback(() => {
+        if (!editorRef.current) return;
+        // 인용구(본문+출처)는 중첩 div라 regex로 못 뽑아내므로, 복제본 DOM에서 먼저 텍스트를
+        // 추출해 [QUOTE_*]본문\n출처: 출처[/QUOTE_*] 플레이스홀더로 치환한 뒤 나머지는
+        // 기존 htmlToMarkup(정규식 기반)이 그대로 처리하게 한다.
+        const clone = editorRef.current.cloneNode(true);
+        clone.querySelectorAll('[data-quote]').forEach((el) => {
+            const qk = el.getAttribute('data-quote');
+            const textEl = el.querySelector('[data-quote-text]');
+            const sourceEl = el.querySelector('[data-quote-source]');
+            const mainText = (textEl ? textEl.innerText : el.innerText || '').trim();
+            const sourceText = (sourceEl ? sourceEl.innerText : '').trim();
+            const combined = sourceText ? `${mainText}\n출처: ${sourceText}` : mainText;
+            const placeholder = document.createElement('div');
+            placeholder.textContent = `[${qk}]${combined}[/${qk}]`;
+            el.replaceWith(placeholder);
+        });
+        // 이미지 자리(업로드 이미지 미리보기 + 라벨, 혹은 프롬프트 안내문)도 내부에 중첩 div를
+        // 포함하므로 같은 방식으로 [IMAGE_ANCHOR_N] 플레이스홀더로 먼저 치환해둔다.
+        clone.querySelectorAll('[data-image-anchor]').forEach((el) => {
+            const num = el.getAttribute('data-image-anchor');
+            const placeholder = document.createElement('div');
+            placeholder.textContent = `[IMAGE_ANCHOR_${num}]`;
+            el.replaceWith(placeholder);
+        });
+        const rawHtml = clone.innerHTML;
+        const markup = htmlToMarkup(rawHtml);
+        updateActivePreview('body', markup);
+    }, [activePreviewIdx]);
+
+    // WYSIWYG 에디터 HTML 갱신 (state → editor, 커서 보존 불필요 시점에만)
+    const refreshEditorHtml = useCallback((body, customImages, imagePrompts) => {
+        if (!editorRef.current) return;
+        const newHtml = markupToHtml(body, customImages, imagePrompts);
+        // 현재 포커스 중이면 갱신 방지 (사용자 입력 중 깜빡임 방지) — 인용구 본문/출처는
+        // contenteditable="true" 섬이라 포커스 시 document.activeElement가 editorRef 자신이
+        // 아니라 그 안쪽 섬 엘리먼트가 되므로, contains()로 "에디터 내부 어딘가에 포커스"까지 포함해 체크한다.
+        if (editorRef.current.contains(document.activeElement)) return;
+        editorRef.current.innerHTML = newHtml;
+    }, []);
+
+    // previewData가 바뀔 때 에디터 HTML 갱신
+    useEffect(() => {
+        const pd = previews[activePreviewIdx];
+        if (pd?.body !== undefined) {
+            refreshEditorHtml(pd.body, pd?.custom_uploaded_images, pd?.image_prompts);
+        }
+    }, [activePreviewIdx, previews]);
+
+    const savedRangeRef = useRef(null);
+    const [selectedBlockEl, setSelectedBlockEl] = useState(null);
+
+    const saveSelection = () => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            if (editorRef.current && editorRef.current.contains(range.commonAncestorContainer)) {
+                savedRangeRef.current = range.cloneRange();
+            }
+        }
+    };
+
+    const restoreSelection = () => {
+        if (savedRangeRef.current) {
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(savedRangeRef.current);
+        }
+    };
+
+    const handleEditorClick = (e) => {
+        saveSelection();
+        // 인용구 본문/출처 섬은 삽입 시 "내용을 입력하세요." / "출처 입력" 안내문이 실제 텍스트로
+        // 채워져 있다 — 클릭해서 편집을 시작하면 안내문이 그대로 남지 않도록 지워준다.
+        const quoteIsland = e.target.closest('[data-quote-text], [data-quote-source]');
+        if (quoteIsland) {
+            const seed = quoteIsland.hasAttribute('data-quote-text') ? '내용을 입력하세요.' : '출처 입력';
+            if (quoteIsland.textContent.trim() === seed) {
+                quoteIsland.textContent = '';
+            }
+        }
+        if (selectedBlockEl) {
+            selectedBlockEl.style.outline = 'none';
+        }
+        const block = e.target.closest('[data-sticker], [data-image-anchor], [data-quote], [data-block]');
+        if (block) {
+            block.style.display = 'block';
+            // 인용구는 사진/스티커처럼 내용 크기에 맞춰 줄어들면 안 되고(글이 길면 줄바꿈되며
+            // 박스 폭을 유지해야 함) 항상 꽉 찬 폭을 유지해야 한다. 정렬 대상인 사진/스티커만 축소.
+            if (!block.hasAttribute('data-quote')) {
+                block.style.width = 'fit-content';
+            }
+            block.style.outline = '2px solid #00b894';
+            block.style.outlineOffset = '2px';
+            block.style.borderRadius = '4px';
+            setSelectedBlockEl(block);
+        } else {
+            setSelectedBlockEl(null);
+        }
+    };
+
+    const handleEditorContextMenu = (e) => {
+        const block = e.target.closest('[data-sticker], [data-image-anchor], [data-quote], [data-block]');
+        if (block) {
+            e.preventDefault();
+            if (confirm('선택한 항목(스티커/사진/블록)을 삭제하시겠습니까?')) {
+                block.remove();
+                setSelectedBlockEl(null);
+                syncEditorToState();
+            }
+        }
+    };
+
+    const handleEditorKeyDown = (e) => {
+        // 인용구는 본문/출처 섬 안에 아직 지울 글자가 남아있는 동안만 Backspace/Delete가 그
+        // 글자를 지우도록 둔다 — 글자가 다 지워진 뒤(또는애초에 텍스트 섬 밖, 예: 테두리를
+        // 클릭해 블록만 선택한 상태) 다시 누르면 사진/스티커/비즈니스 블록과 동일하게 블록
+        // 전체를 삭제한다.
+        if ((e.key === 'Backspace' || e.key === 'Delete') && selectedBlockEl) {
+            if (selectedBlockEl.hasAttribute('data-quote')) {
+                const activeIsland = document.activeElement?.closest('[data-quote-text], [data-quote-source]');
+                if (activeIsland && activeIsland.textContent.trim() !== '') {
+                    saveSelection();
+                    return;
+                }
+            }
+            e.preventDefault();
+            selectedBlockEl.remove();
+            setSelectedBlockEl(null);
+            syncEditorToState();
+            return;
+        }
+        saveSelection();
+    };
+
+    const alignSelectedBlock = (align) => {
+        if (selectedBlockEl) {
+            // 인용구는 네이버 실제 컴포넌트처럼 항상 꽉 찬 폭의 블록이라 좌/중앙/우 정렬 대상이 아님 —
+            // 폭을 줄이지 않고 그대로 둔다 (사진/스티커만 fit-content로 줄여서 정렬).
+            if (selectedBlockEl.hasAttribute('data-quote')) return;
+            selectedBlockEl.style.display = 'block';
+            selectedBlockEl.style.width = 'fit-content';
+            if (align === 'center') {
+                selectedBlockEl.style.margin = '16px auto';
+            } else if (align === 'right') {
+                selectedBlockEl.style.margin = '16px 0 16px auto';
+            } else {
+                selectedBlockEl.style.margin = '16px auto 16px 0';
+            }
+            syncEditorToState();
+        }
+    };
+
+    const deleteSelectedBlock = () => {
+        if (selectedBlockEl) {
+            selectedBlockEl.remove();
+            setSelectedBlockEl(null);
+            syncEditorToState();
+        }
+    };
+
+    // 선택된 인용구를 다른 스타일로 즉시 교체 (본문/출처 텍스트는 그대로 유지)
+    const switchQuoteStyle = (newStyleKey) => {
+        if (!selectedBlockEl || !selectedBlockEl.hasAttribute('data-quote')) return;
+        const renderer = QUOTE_RENDER[newStyleKey];
+        if (!renderer) return;
+        const textEl = selectedBlockEl.querySelector('[data-quote-text]');
+        const sourceEl = selectedBlockEl.querySelector('[data-quote-source]');
+        const mainHtml = textEl ? textEl.innerHTML : '';
+        const sourceHtml = sourceEl ? sourceEl.innerHTML : '';
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = renderer.wrap(mainHtml, sourceHtml);
+        const newEl = wrapper.firstElementChild;
+        selectedBlockEl.replaceWith(newEl);
+        newEl.style.outline = '2px solid #00b894';
+        newEl.style.outlineOffset = '2px';
+        newEl.style.borderRadius = '4px';
+        setSelectedBlockEl(newEl);
+        syncEditorToState();
+    };
+
+    // 에디터에 HTML 블록 삽입 (현재 커서 위치에 즉시 삽입)
+    const insertHtmlToEditor = useCallback((htmlStr) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        restoreSelection();
+        document.execCommand('insertHTML', false, htmlStr);
+        saveSelection();
+        // 동기화
+        clearTimeout(editorSyncTimer.current);
+        editorSyncTimer.current = setTimeout(syncEditorToState, 300);
+    }, [syncEditorToState]);
+
+    const insertTextToBody = (textToInsert) => {
+        // WYSIWYG 에디터가 있으면 직접 HTML 삽입
+        if (editorRef.current) {
+            // 마크업 → HTML 변환 후 삽입
+            const htmlToInsert = markupToHtml(textToInsert, previews[activePreviewIdx]?.custom_uploaded_images, previews[activePreviewIdx]?.image_prompts);
+            insertHtmlToEditor(htmlToInsert);
+        } else {
+            setPreviews(prev => {
+                const next = [...prev];
+                if (next[activePreviewIdx]) {
+                    const currentBody = next[activePreviewIdx].body || '';
+                    next[activePreviewIdx] = {
+                        ...next[activePreviewIdx],
+                        body: currentBody ? `${currentBody}\n${textToInsert}` : textToInsert
+                    };
+                }
+                return next;
+            });
+        }
+    };
+
+    const insertQuoteTag = (styleKey) => {
+        const hasSource = QUOTE_RENDER[styleKey]?.hasSource;
+        const quoteTemplate = hasSource
+            ? `\n[${styleKey}]내용을 입력하세요.\n출처: 출처 입력[/${styleKey}]\n`
+            : `\n[${styleKey}]내용을 입력하세요.[/${styleKey}]\n`;
+        insertTextToBody(quoteTemplate);
+    };
+
+    const insertStickerToEditor = (s) => {
+        const htmlStr = `<div contenteditable="false" data-sticker="${s.id}" style="margin:16px auto 16px 0;display:block;width:fit-content;user-select:none;position:relative;cursor:pointer;"><img src="${s.url}" alt="스티커" style="width:140px;height:140px;display:block;object-fit:contain;" /></div>`;
+        insertHtmlToEditor(htmlStr);
+        setStickerDropdownOpen(false);
+    };
+
+    // 툴바 execCommand 래퍼
+    const execFormat = useCallback((cmd, value) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        document.execCommand(cmd, false, value || null);
+        clearTimeout(editorSyncTimer.current);
+        editorSyncTimer.current = setTimeout(syncEditorToState, 300);
+    }, [syncEditorToState]);
+
+    const handleCustomPhotoUpload = async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        for (const file of files) {
+            let fileUrl = null;
+            try {
+                const fileExt = file.name.split('.').pop() || 'jpg';
+                const fileName = `editor_uploads/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+                const { data, error: upErr } = await supabase.storage.from('blogmaster-images').upload(fileName, file, { upsert: true });
+                if (!upErr && data) {
+                    const { data: { publicUrl } } = supabase.storage.from('blogmaster-images').getPublicUrl(fileName);
+                    fileUrl = publicUrl;
+                }
+            } catch (err) {
+                console.warn('[Custom Photo Upload] Fallback to DataURL', err);
+            }
+
+            if (!fileUrl) {
+                fileUrl = await new Promise(r => {
+                    const reader = new FileReader();
+                    reader.onload = ev => r(ev.target.result);
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            setPreviews(prev => {
+                const next = [...prev];
+                if (next[activePreviewIdx]) {
+                    const currentImages = next[activePreviewIdx].custom_uploaded_images || [];
+                    const newImages = [...currentImages, fileUrl];
+                    const newIndex = newImages.length;
+                    const currentBody = next[activePreviewIdx].body || '';
+                    const anchorTag = `\n[IMAGE_ANCHOR_${newIndex}]\n`;
+                    next[activePreviewIdx] = {
+                        ...next[activePreviewIdx],
+                        custom_uploaded_images: newImages,
+                        body: currentBody ? `${currentBody}${anchorTag}` : anchorTag
+                    };
+                }
+                return next;
+            });
+        }
+        e.target.value = '';
+    };
+
+    // 동영상 업로드 — handleCustomPhotoUpload과 동일한 방식(Supabase Storage 업로드 →
+    // custom_uploaded_images에 추가 → [IMAGE_ANCHOR_N] 태그 삽입)을 그대로 재사용한다.
+    // 확장자(.mp4 등)가 URL에 그대로 남아있으면 백엔드/확장프로그램이 그걸로 이미지와
+    // 동영상을 구분하므로, 별도의 자료구조 변경 없이 같은 파이프라인을 탄다.
+    const handleCustomVideoUpload = async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        for (const file of files) {
+            const limitMB = 50;
+            if (file.size > limitMB * 1024 * 1024) {
+                setError(`파일 용량이 너무 큽니다. 동영상은 ${limitMB}MB 이하로 업로드해 주세요.`);
+                continue;
+            }
+
+            let fileUrl = null;
+            try {
+                const fileExt = file.name.split('.').pop() || 'mp4';
+                const fileName = `editor_uploads/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+                const { data, error: upErr } = await supabase.storage.from('blogmaster-images').upload(fileName, file, { upsert: true, contentType: file.type || 'video/mp4' });
+                if (!upErr && data) {
+                    const { data: { publicUrl } } = supabase.storage.from('blogmaster-images').getPublicUrl(fileName);
+                    fileUrl = publicUrl;
+                }
+            } catch (err) {
+                console.warn('[Custom Video Upload] Failed', err);
+            }
+
+            if (!fileUrl) {
+                setError('동영상 업로드에 실패했습니다. 다시 시도해 주세요.');
+                continue;
+            }
+
+            setPreviews(prev => {
+                const next = [...prev];
+                if (next[activePreviewIdx]) {
+                    const currentImages = next[activePreviewIdx].custom_uploaded_images || [];
+                    const newImages = [...currentImages, fileUrl];
+                    const newIndex = newImages.length;
+                    const currentBody = next[activePreviewIdx].body || '';
+                    const anchorTag = `\n[IMAGE_ANCHOR_${newIndex}]\n`;
+                    next[activePreviewIdx] = {
+                        ...next[activePreviewIdx],
+                        custom_uploaded_images: newImages,
+                        body: currentBody ? `${currentBody}${anchorTag}` : anchorTag
+                    };
+                }
+                return next;
+            });
+        }
+        e.target.value = '';
+    };
     const executionMode = 'extension';
     const [thumbnailTextMode, setThumbnailTextMode] = useState(false);
     const [thumbnailCustomText, setThumbnailCustomText] = useState('');
@@ -1376,10 +2016,12 @@ function NewPostContent() {
                 seo_guidelines: activePreviewData.seo_stats || activePreviewData.seo_guidelines || {},
                 data_asset: activePreviewData.data_asset || {},
                 image_source: imageSource,
-                // 무료 이미지 모드: 사용자가 선택한 Pexels 이미지 URL 목록 (슬롯 순서대로)
-                selected_pexels_images: imageSource === 'stock'
-                    ? (activePreviewData.image_prompts || []).map((_, i) => selectedPexels[i]?.url || null).filter(Boolean)
-                    : undefined,
+                // 사용자가 에디터에서 직접 업로드한 이미지가 있으면 최우선 반영, 없으면 무료 이미지(stock) 모드 URL 반영
+                selected_pexels_images: (activePreviewData.custom_uploaded_images && activePreviewData.custom_uploaded_images.length > 0)
+                    ? activePreviewData.custom_uploaded_images
+                    : (imageSource === 'stock'
+                        ? (activePreviewData.image_prompts || []).map((_, i) => selectedPexels[i]?.url || null).filter(Boolean)
+                        : undefined),
                 // image_reference 타입만 실제 이미지 경로를 저장 — url_reference의 기사 URL이 섞이지 않도록
                 reference_url: form.trigger_type === 'image_reference' ? (imageUrl || activePreviewData.reference_url || null) : null,
                 media_meta: activePreviewData.media_meta || null,
@@ -3001,12 +3643,7 @@ function NewPostContent() {
                                     {isEditingPreview ? '✓ 편집 완료' : '✏ 원고 편집'}
                                 </button>
                             )}
-                            {previewLoading && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--accent)', fontSize: 12, fontWeight: 600 }}>
-                                    <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }}></div>
-                                    AI가 작성 중...
-                                </div>
-                            )}
+                            {/* 로딩 표시는 위에 뜨지 않고 아래 원고 자리에서 B 로고 애니메이션으로 보여준다 */}
                         </div>
                     </div>
 
@@ -3085,10 +3722,21 @@ function NewPostContent() {
                         </div>
                     )}
 
-                    <div style={{ flex: 1, overflowY: 'auto', padding: '40px' }}>
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '0 40px 40px 40px' }}>
                         {!previewData && !previewLoading ? (
                             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', textAlign: 'center' }}>
                                 <div style={{ fontSize: 16 }}>왼쪽 양식을 작성하고 <br /><strong>'원고 생성'</strong> 버튼을 클릭하세요.</div>
+                            </div>
+                        ) : !previewData && previewLoading ? (
+                            <div style={{ height: '100%', minHeight: 420, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 22 }}>
+                                <div style={{
+                                    width: 60, height: 60, borderRadius: 18,
+                                    background: 'var(--gradient-1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    color: '#fff', fontWeight: 800, fontSize: 26,
+                                    boxShadow: '0 10px 28px rgba(0,184,148,0.35)',
+                                    animation: 'bWander 2.4s ease-in-out infinite',
+                                }}>B</div>
+                                <div style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 600 }}>AI가 원고를 작성하고 있어요...</div>
                             </div>
                         ) : (
                             <div className="animate-in">
@@ -3100,21 +3748,10 @@ function NewPostContent() {
                                         .replace(/\[BUSINESS_CTA_BANNER\]/g, '')
                                         .replace(/\[\/?B\]/g, '')
                                         .replace(/\[\/?(QUOTE_VERTICAL|QUOTE_DEFAULT|QUOTE_POSTIT|QUOTE_BALLOON|QUOTE_LINE_QUOTATION|QUOTE_FRAME)\]/g, '')
+                                        .replace(/\[STICKER:.*?\]/g, '')
                                         .trim().length;
                                     return (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                            <button
-                                                data-tour="post-quote-style-btn"
-                                                onClick={() => setQuoteModalOpen(true)}
-                                                style={{
-                                                    display: 'flex', alignItems: 'center', gap: 7,
-                                                    fontSize: 12, fontWeight: 700, padding: '6px 16px', borderRadius: 20,
-                                                    background: 'rgba(0,184,148,0.1)', border: '1px solid rgba(0,184,148,0.3)',
-                                                    color: 'var(--accent)', cursor: 'pointer', transition: 'background 0.15s',
-                                                }}
-                                            >
-                                                소제목 인용구 설정
-                                            </button>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 16 }}>
                                             <span style={{
                                                 fontSize: 12, fontWeight: 700,
                                                 padding: '5px 14px', borderRadius: 20,
@@ -3128,86 +3765,633 @@ function NewPostContent() {
                                     );
                                 })()}
 
-                                {/* Naver SmartEditor ONE White Paper Canvas */}
-                                <div style={{
-                                    background: '#ffffff',
-                                    borderRadius: 16,
-                                    border: '1px solid #e2e8f0',
-                                    padding: '40px 36px',
-                                    boxShadow: '0 8px 30px rgba(0,0,0,0.06)',
-                                    marginBottom: 24,
-                                    boxSizing: 'border-box'
-                                }}>
-                                    {/* Title Section */}
-                                    <div style={{ marginBottom: 32, borderBottom: '1px solid #e2e8f0', paddingBottom: 24 }}>
-                                        <label style={{ fontSize: 11, color: '#00b894', marginBottom: 8, display: 'block', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                            네이버 포스팅 제목 {isEditingPreview && <span style={{ color: '#ef4444', marginLeft: 6 }}>— 편집 중</span>}
-                                        </label>
-                                        {isEditingPreview ? (
-                                            <input
-                                                type="text"
-                                                value={previewData?.title || ''}
-                                                onChange={e => setPreviews(prev => { const next = [...prev]; if (next[activePreviewIdx]) next[activePreviewIdx] = { ...next[activePreviewIdx], title: e.target.value }; return next; })}
-                                                style={{
-                                                    width: '100%', fontSize: 24, fontWeight: 800, color: '#0f172a',
-                                                    lineHeight: 1.4, background: '#ffffff',
-                                                    padding: '16px 20px', borderRadius: 10,
-                                                    border: '2px solid #00b894',
-                                                    outline: 'none', boxSizing: 'border-box'
-                                                }}
-                                            />
-                                        ) : (
-                                            <div style={{
-                                                fontSize: 24, fontWeight: 800, color: '#0f172a',
-                                                lineHeight: 1.4, background: '#ffffff'
-                                            }}>
-                                                {previewData?.title || (previewLoading ? '제목을 구상 중입니다...' : '')}
+                                {/* Naver SmartEditor ONE Editor Wrapper */}
+                                <div style={{ borderRadius: 16, border: '1px solid #e2e8f0', marginBottom: 24, boxShadow: '0 8px 30px rgba(0,0,0,0.06)', background: '#ffffff' }}>
+                                    {/* Sticky Toolbar Header */}
+                                    <div ref={toolbarRef} style={{
+                                        position: 'sticky', top: 0, zIndex: 100,
+                                        background: '#ffffff', borderBottom: '1px solid #e2e8f0',
+                                        padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: 8,
+                                        borderTopLeftRadius: 16, borderTopRightRadius: 16,
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.04)'
+                                    }}>
+                                        {/* Row 1: Action Icons matching Naver SmartEditor ONE Screenshot 1 */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', position: 'relative', padding: '4px 0' }}>
+                                            {/* 사진 */}
+                                            <div
+                                                onMouseDown={e => e.preventDefault()}
+                                                onClick={() => document.getElementById('naver-editor-photo-input').click()}
+                                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444' }}
+                                            >
+                                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>사진</span>
                                             </div>
-                                        )}
-                                    </div>
+                                            <input id="naver-editor-photo-input" type="file" accept="image/*" multiple hidden onChange={handleCustomPhotoUpload} />
 
-                                    {/* Main Body & Image Prompts Split */}
-                                    <div className="bm-grid bm-grid-preview" style={{ gap: 24 }}>
-                                        {/* Content Scroll */}
-                                        <div>
-                                            <label style={{ fontSize: 11, color: '#00b894', marginBottom: 12, display: 'block', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                네이버 본문 원고 {isEditingPreview && <span style={{ color: '#ef4444', marginLeft: 6 }}>— 편집 중</span>}
-                                            </label>
-                                            {isEditingPreview ? (
-                                                <textarea
-                                                    value={previewData?.body || ''}
-                                                    onChange={e => setPreviews(prev => { const next = [...prev]; if (next[activePreviewIdx]) next[activePreviewIdx] = { ...next[activePreviewIdx], body: e.target.value }; return next; })}
-                                                    style={{
-                                                        width: '100%', fontSize: 16, lineHeight: 1.85,
-                                                        color: '#1e293b',
-                                                        background: '#ffffff',
-                                                        padding: '20px', borderRadius: 12,
-                                                        border: '2px solid #00b894',
-                                                        outline: 'none', resize: 'vertical',
-                                                        minHeight: 600, boxSizing: 'border-box',
-                                                        fontFamily: "'Nanum Gothic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-                                                        whiteSpace: 'pre-wrap'
+                                            {/* 동영상 */}
+                                            <div onMouseDown={e => e.preventDefault()} onClick={() => document.getElementById('naver-editor-video-input').click()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444' }}>
+                                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8"><rect x="2" y="4" width="15" height="16" rx="2" /><polygon points="17 8 22 5 22 19 17 16 17 8" /></svg>
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>동영상</span>
+                                            </div>
+                                            <input id="naver-editor-video-input" type="file" accept="video/*" hidden onChange={handleCustomVideoUpload} />
+
+                                            {/* 스티커 */}
+                                            <div style={{ position: 'relative' }}>
+                                                <div
+                                                    onMouseDown={e => e.preventDefault()}
+                                                    onClick={() => { setStickerDropdownOpen(o => !o); setQuoteDropdownOpen(false); setDividerDropdownOpen(false); }}
+                                                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444' }}
+                                                >
+                                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8"><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="2.5" /><line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="2.5" /></svg>
+                                                    <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>스티커</span>
+                                                </div>
+                                                {stickerDropdownOpen && (
+                                                    <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, width: 360, background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: 16, boxShadow: '0 12px 30px rgba(0,0,0,0.18)', zIndex: 9999, padding: 14, boxSizing: 'border-box' }}>
+                                                        <div style={{ fontSize: 13, fontWeight: 800, color: '#00b894', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                            <span>네이버 라인프렌즈 스티커</span>
+                                                            <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>클릭시 원고에 즉시 삽입</span>
+                                                        </div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, maxHeight: 300, overflowY: 'auto', overflowX: 'hidden', paddingRight: 4 }}>
+                                                            {NAVER_OGQ_STICKERS.map(s => (
+                                                                <div
+                                                                    key={s.id}
+                                                                    onMouseDown={e => e.preventDefault()}
+                                                                    onClick={() => insertStickerToEditor(s)}
+                                                                    style={{ padding: '8px 4px', borderRadius: 10, background: '#ffffff', border: '1px solid #f1f5f9', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                                    onMouseEnter={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#00b894'; e.currentTarget.style.transform = 'scale(1.08)'; }}
+                                                                    onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#f1f5f9'; e.currentTarget.style.transform = 'scale(1)'; }}
+                                                                >
+                                                                    <img src={s.url} alt="스티커" style={{ width: 62, height: 62, display: 'block', objectFit: 'contain' }} />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* 인용구 */}
+                                            <div style={{ position: 'relative' }}>
+                                                <div
+                                                    onMouseDown={e => e.preventDefault()}
+                                                    onClick={() => { setQuoteDropdownOpen(o => !o); setStickerDropdownOpen(false); setDividerDropdownOpen(false); }}
+                                                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444' }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                        <span style={{ fontSize: 16, fontWeight: 900, color: '#444', lineHeight: 1 }}>“</span>
+                                                        <span style={{ fontSize: 9, color: '#00b894' }}>▼</span>
+                                                    </div>
+                                                    <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>인용구</span>
+                                                </div>
+                                                {quoteDropdownOpen && (
+                                                    <div style={{
+                                                        position: 'absolute', top: 'calc(100% + 6px)', left: 0, width: 220,
+                                                        background: '#ffffff', border: '1px solid #c8c8c8', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                                                        zIndex: 9999, borderRadius: 2, padding: 0
+                                                    }}>
+                                                        <div onMouseDown={e => e.preventDefault()} onClick={() => { insertQuoteTag('QUOTE_DEFAULT'); setQuoteDropdownOpen(false); }} style={{ padding: '14px 12px', borderBottom: '1px solid #eee', cursor: 'pointer', textAlign: 'center' }}>
+                                                            <div style={{ fontSize: 16, color: '#666', lineHeight: 1 }}>“</div>
+                                                            <div style={{ fontSize: 12, color: '#555', margin: '3px 0', fontWeight: 600 }}>따옴표</div>
+                                                            <div style={{ fontSize: 16, color: '#666', lineHeight: 1 }}>”</div>
+                                                        </div>
+                                                        <div onMouseDown={e => e.preventDefault()} onClick={() => { insertQuoteTag('QUOTE_VERTICAL'); setQuoteDropdownOpen(false); }} style={{ padding: '14px 12px', borderBottom: '1px solid #eee', cursor: 'pointer', textAlign: 'center' }}>
+                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#444', fontWeight: 600 }}>
+                                                                <span style={{ width: 2, height: 14, background: '#333' }}></span> 버티컬 라인
+                                                            </div>
+                                                        </div>
+                                                        <div onMouseDown={e => e.preventDefault()} onClick={() => { insertQuoteTag('QUOTE_BALLOON'); setQuoteDropdownOpen(false); }} style={{ padding: '12px 12px', borderBottom: '1px solid #eee', cursor: 'pointer', textAlign: 'center' }}>
+                                                            <div style={{ display: 'inline-block', border: '1.5px solid #666', padding: '5px 22px', borderRadius: 4, fontSize: 12, color: '#444', fontWeight: 600, position: 'relative' }}>
+                                                                말풍선
+                                                                <div style={{ position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '5px solid #666' }} />
+                                                            </div>
+                                                        </div>
+                                                        <div onMouseDown={e => e.preventDefault()} onClick={() => { insertQuoteTag('QUOTE_LINE_QUOTATION'); setQuoteDropdownOpen(false); }} style={{ padding: '12px 12px', borderBottom: '1px solid #eee', cursor: 'pointer', textAlign: 'center' }}>
+                                                            <div style={{ fontSize: 14, color: '#666', lineHeight: 1 }}>“</div>
+                                                            <div style={{ fontSize: 12, color: '#444', borderBottom: '2px solid #444', display: 'inline-block', paddingBottom: 2, margin: '2px 0 3px', fontWeight: 600 }}>라인&따옴표</div>
+                                                        </div>
+                                                        <div onMouseDown={e => e.preventDefault()} onClick={() => { insertQuoteTag('QUOTE_POSTIT'); setQuoteDropdownOpen(false); }} style={{ padding: '12px 12px', borderBottom: '1px solid #eee', cursor: 'pointer', textAlign: 'center' }}>
+                                                            <div style={{ display: 'inline-block', border: '1.5px solid #666', padding: '5px 20px', fontSize: 12, color: '#444', fontWeight: 600, background: '#fff', position: 'relative' }}>
+                                                                포스트잇
+                                                                <div style={{ position: 'absolute', bottom: -1, right: -1, width: 5, height: 5, background: '#666' }} />
+                                                            </div>
+                                                        </div>
+                                                        <div onMouseDown={e => e.preventDefault()} onClick={() => { insertQuoteTag('QUOTE_FRAME'); setQuoteDropdownOpen(false); }} style={{ padding: '14px 12px', cursor: 'pointer', textAlign: 'center' }}>
+                                                            <div style={{ display: 'inline-block', padding: '3px 18px', position: 'relative', fontSize: 12, color: '#444', fontWeight: 600 }}>
+                                                                <span style={{ position: 'absolute', top: -2, left: -2, fontSize: 12, color: '#555' }}>┌</span>
+                                                                프레임
+                                                                <span style={{ position: 'absolute', bottom: -2, right: -2, fontSize: 12, color: '#555' }}>┘</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* 구분선 */}
+                                            <div style={{ position: 'relative' }}>
+                                                <div
+                                                    onMouseDown={e => e.preventDefault()}
+                                                    onClick={() => { setDividerDropdownOpen(o => !o); setQuoteDropdownOpen(false); setStickerDropdownOpen(false); }}
+                                                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444' }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                        <span style={{ fontSize: 14, fontWeight: 900, color: '#444', lineHeight: 1 }}>—</span>
+                                                        <span style={{ fontSize: 9, color: '#00b894' }}>▼</span>
+                                                    </div>
+                                                    <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>구분선</span>
+                                                </div>
+                                                {dividerDropdownOpen && (
+                                                    <div style={{
+                                                        position: 'absolute', top: 'calc(100% + 6px)', left: 0, width: 220,
+                                                        background: '#ffffff', border: '1px solid #c8c8c8', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                                                        zIndex: 9999, borderRadius: 2, padding: 0
+                                                    }}>
+                                                        {[
+                                                            { label: '─────', type: 'short' },
+                                                            { label: '────────────────', type: 'full' },
+                                                            { label: '━━━━━━━', type: 'thick' },
+                                                            { label: '───── ∨ ─────', type: 'notch' },
+                                                            { label: '───── ◇ ─────', type: 'diamond' },
+                                                            { label: '· · · · · ·', type: 'dots' },
+                                                            { label: '╱', type: 'slash' },
+                                                            { label: '│', type: 'vertical' },
+                                                        ].map((d, idx) => (
+                                                            <div
+                                                                key={idx}
+                                                                onMouseDown={e => e.preventDefault()}
+                                                                onClick={() => {
+                                                                    insertTextToBody(`\n[QUOTE_LINE_QUOTATION]${d.label}[/QUOTE_LINE_QUOTATION]\n`);
+                                                                    setDividerDropdownOpen(false);
+                                                                }}
+                                                                style={{ padding: '12px', borderBottom: idx < 7 ? '1px solid #eee' : 'none', cursor: 'pointer', textAlign: 'center', color: '#555', fontSize: 13, fontWeight: 600 }}
+                                                            >
+                                                                {d.label}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* 링크 */}
+                                            <div onMouseDown={e => e.preventDefault()} onClick={() => { const u = prompt('링크 URL:'); if (u) insertTextToBody(` [${u}](${u}) `); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444' }}>
+                                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>링크</span>
+                                            </div>
+
+                                            {/* 파일 */}
+                                            <div onMouseDown={e => e.preventDefault()} onClick={() => alert('파일 첨부')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444' }}>
+                                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /><line x1="12" y1="11" x2="12" y2="17" /><line x1="9" y1="14" x2="15" y2="14" /></svg>
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>파일</span>
+                                            </div>
+
+                                            {/* 일정 */}
+                                            <div onMouseDown={e => e.preventDefault()} onClick={() => alert('일정 블록')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444' }}>
+                                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>일정</span>
+                                            </div>
+
+                                            {/* 소스코드 */}
+                                            <div onMouseDown={e => e.preventDefault()} onClick={() => insertTextToBody('\n```javascript\n// 소스코드 작성\n```\n')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444' }}>
+                                                <span style={{ fontSize: 16, fontWeight: 800, color: '#555', lineHeight: 1, height: 22, display: 'flex', alignItems: 'center' }}>&#123;&#125;</span>
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>소스코드</span>
+                                            </div>
+
+                                            {/* 표 */}
+                                            <div onMouseDown={e => e.preventDefault()} onClick={() => insertTextToBody('\n| 항목 | 내용 |\n|---|---|\n| 1 | 내용1 |\n')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444' }}>
+                                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" /><line x1="12" y1="3" x2="12" y2="21" /></svg>
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>표</span>
+                                            </div>
+
+                                            {/* 수식 */}
+                                            <div onMouseDown={e => e.preventDefault()} onClick={() => insertTextToBody(' f(x) = ax^2 + bx + c ')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444' }}>
+                                                <span style={{ fontSize: 15, fontWeight: 800, color: '#555', lineHeight: 1, height: 22, display: 'flex', alignItems: 'center' }}>√x</span>
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>수식</span>
+                                            </div>
+
+                                            {/* 구분선 바 */}
+                                            <div style={{ height: 28, width: 1, background: '#e2e8f0', margin: '0 4px' }} />
+
+                                            {/* 장소 */}
+                                            <div onMouseDown={e => e.preventDefault()} onClick={() => insertTextToBody('\n[BUSINESS_MAP_BLOCK]\n')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444' }}>
+                                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>장소</span>
+                                            </div>
+
+                                            {/* 내돈내산 */}
+                                            <div onMouseDown={e => e.preventDefault()} onClick={() => insertTextToBody(' #내돈내산 ')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444' }}>
+                                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8"><circle cx="9" cy="12" r="6" /><circle cx="15" cy="12" r="6" /></svg>
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>내돈내산</span>
+                                            </div>
+
+                                            {/* 글감 */}
+                                            <div onMouseDown={e => e.preventDefault()} onClick={() => insertTextToBody(' [참고 글감] ')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#444', position: 'relative' }}>
+                                                <div style={{ position: 'relative' }}>
+                                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /><circle cx="12" cy="10" r="2.5" /><line x1="14" y1="12" x2="17" y2="15" /></svg>
+                                                    <span style={{ position: 'absolute', top: 0, right: 0, width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
+                                                </div>
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#555' }}>글감</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Formatting Row (Screenshot 3 & 4 Exact Replicas) */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, borderTop: '1px solid #f1f5f9', paddingTop: 6, flexWrap: 'wrap', position: 'relative' }}>
+                                            <select
+                                                onChange={e => execFormat('formatBlock', e.target.value)}
+                                                style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff', cursor: 'pointer', outline: 'none' }}
+                                            >
+                                                <option value="p">본문</option>
+                                                <option value="h3">소제목</option>
+                                                <option value="h2">제목 1</option>
+                                            </select>
+
+                                            {/* Font Dropdown (Screenshot 3 Exact Replica) */}
+                                            <div style={{ position: 'relative' }}>
+                                                <button
+                                                    type="button"
+                                                    onMouseDown={e => e.preventDefault()}
+                                                    onClick={() => {
+                                                        setFontDropdownOpen(o => !o);
+                                                        setQuoteDropdownOpen(false);
+                                                        setStickerDropdownOpen(false);
+                                                        setDividerDropdownOpen(false);
+                                                        setAlignDropdownOpen(false);
                                                     }}
-                                                />
-                                            ) : (
+                                                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#ffffff', border: '1px solid #cbd5e1', padding: '3px 10px', borderRadius: 4, fontSize: 12, color: fontDropdownOpen ? '#00b894' : '#333333', fontWeight: 600, cursor: 'pointer' }}
+                                                >
+                                                    <span>{selectedFontName}</span> <span style={{ fontSize: 10, color: '#00b894' }}>∧</span>
+                                                </button>
+                                                {fontDropdownOpen && (
+                                                    <div style={{
+                                                        position: 'absolute', top: 'calc(100% + 4px)', left: 0, width: 170,
+                                                        background: '#ffffff', border: '1px solid #c8c8c8', boxShadow: '0 8px 24px rgba(0,0,0,0.14)',
+                                                        zIndex: 9999, borderRadius: 2, padding: '4px 0'
+                                                    }}>
+                                                        {[
+                                                            { name: '기본서체', font: 'inherit' },
+                                                            { name: '나눔고딕', font: "'Nanum Gothic', sans-serif" },
+                                                            { name: '나눔명조', font: "'Nanum Myeongjo', serif" },
+                                                            { name: '나눔바른고딕', font: "'NanumBarunGothic', sans-serif" },
+                                                            { name: '나눔스퀘어', font: "'NanumSquare', sans-serif" },
+                                                            { name: '마루부리', font: "'MaruBuri', serif" },
+                                                            { name: '다시시작해', font: "'Nanum Brush Script', cursive" },
+                                                            { name: '바른히피', font: "'Nanum Pen Script', cursive" },
+                                                            { name: '우리딸손글씨', font: "'Nanum Pen Script', cursive" },
+                                                        ].map(f => (
+                                                            <div
+                                                                key={f.name}
+                                                                onMouseDown={e => e.preventDefault()}
+                                                                onClick={() => {
+                                                                    setSelectedFontName(f.name);
+                                                                    execFormat('fontName', f.font);
+                                                                    setFontDropdownOpen(false);
+                                                                }}
+                                                                style={{
+                                                                    padding: '8px 14px', cursor: 'pointer', fontSize: 13,
+                                                                    fontFamily: f.font, color: selectedFontName === f.name ? '#00b894' : '#333',
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                                    fontWeight: selectedFontName === f.name ? 700 : 400
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}
+                                                            >
+                                                                <span>{f.name}</span>
+                                                                {selectedFontName === f.name && <span style={{ color: '#00b894', fontWeight: 800 }}>✓</span>}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <select
+                                                onChange={e => execFormat('fontSize', e.target.value)}
+                                                style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff', cursor: 'pointer', outline: 'none' }}
+                                            >
+                                                <option value="3">15</option>
+                                                <option value="2">13</option>
+                                                <option value="4">17</option>
+                                                <option value="5">19</option>
+                                                <option value="6">24</option>
+                                                <option value="7">32</option>
+                                            </select>
+                                            <div style={{ height: 16, width: 1, background: '#cbd5e1' }} />
+                                            <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => execFormat('bold')} style={{ fontWeight: 800, padding: '2px 8px', borderRadius: 4, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}>B</button>
+                                            <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => execFormat('italic')} style={{ fontStyle: 'italic', padding: '2px 8px', borderRadius: 4, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}>I</button>
+                                            <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => execFormat('underline')} style={{ textDecoration: 'underline', padding: '2px 8px', borderRadius: 4, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}>U</button>
+                                            <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => execFormat('strikeThrough')} style={{ textDecoration: 'line-through', padding: '2px 8px', borderRadius: 4, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}>T</button>
+                                            <div style={{ height: 16, width: 1, background: '#cbd5e1' }} />
+
+                                            {/* Alignment Dropdown (Screenshot 4 Exact Replica) */}
+                                            <div style={{ position: 'relative' }}>
+                                                <button
+                                                    type="button"
+                                                    onMouseDown={e => e.preventDefault()}
+                                                    onClick={() => setAlignDropdownOpen(o => !o)}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}
+                                                >
+                                                    <svg width="18" height="16" viewBox="0 0 20 18" fill="none">
+                                                        <rect x="2" y="2" width="16" height="2" rx="1" fill="#333333" />
+                                                        <rect x="2" y="6" width="11" height="2" rx="1" fill="#333333" />
+                                                        <rect x="2" y="10" width="14" height="2" rx="1" fill="#333333" />
+                                                        <rect x="2" y="14" width="8" height="2" rx="1" fill="#333333" />
+                                                    </svg>
+                                                    <span style={{ fontSize: 10, color: '#00b894' }}>⌄</span>
+                                                </button>
+                                                {alignDropdownOpen && (
+                                                    <div style={{
+                                                        position: 'absolute', top: 'calc(100% + 4px)', left: 0, width: 80,
+                                                        background: '#ffffff', border: '1px solid #c8c8c8', boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
+                                                        zIndex: 9999, borderRadius: 2, padding: '4px 0'
+                                                    }}>
+                                                        {[
+                                                            { cmd: 'justifyLeft', bars: [[2, 16], [2, 11], [2, 14], [2, 8]] },
+                                                            { cmd: 'justifyCenter', bars: [[2, 16], [4.5, 11], [3, 14], [6, 8]] },
+                                                            { cmd: 'justifyRight', bars: [[2, 16], [7, 11], [4, 14], [10, 8]] },
+                                                            { cmd: 'justifyFull', bars: [[2, 16], [2, 16], [2, 16], [2, 16]] },
+                                                        ].map(a => (
+                                                            <div
+                                                                key={a.cmd}
+                                                                onMouseDown={e => e.preventDefault()}
+                                                                onClick={() => {
+                                                                    execFormat(a.cmd);
+                                                                    setAlignDropdownOpen(false);
+                                                                }}
+                                                                style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}
+                                                            >
+                                                                <svg width="20" height="18" viewBox="0 0 20 18" fill="none">
+                                                                    {a.bars.map(([x, w], i) => (
+                                                                        <rect key={i} x={x} y={2 + i * 4} width={w} height="2" rx="1" fill="#00b894" />
+                                                                    ))}
+                                                                </svg>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Special Symbol Picker Button & Modal (Screenshot 5 Exact Replica) */}
+                                            <button
+                                                type="button"
+                                                onMouseDown={e => e.preventDefault()}
+                                                onClick={() => setSymbolModalOpen(true)}
+                                                style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#333' }}
+                                            >
+                                                ※
+                                            </button>
+
+                                            {symbolModalOpen && (
                                                 <div style={{
-                                                    fontSize: 16, lineHeight: 1.85, color: '#2d3748',
-                                                    background: '#ffffff', whiteSpace: 'pre-wrap',
-                                                    minHeight: 500,
-                                                    fontFamily: "'Nanum Gothic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                                                    position: 'absolute', top: 'calc(100% + 6px)', left: 100, width: 340,
+                                                    background: '#ffffff', border: '1px solid #c8c8c8', boxShadow: '0 12px 32px rgba(0,0,0,0.2)',
+                                                    zIndex: 10000, borderRadius: 4, padding: 12
                                                 }}>
-                                                    {previewData?.body
-                                                        ? renderPreviewBody(previewData.body, accounts?.find(a => a.id === form.naver_account_id), form.publish_options)
-                                                        : (previewLoading ? '원고를 작성하는 중입니다. 잠시만 기다려주세요...' : '')}
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: 8, marginBottom: 10 }}>
+                                                        <span style={{ fontSize: 13, fontWeight: 700, color: '#333' }}>많이쓰는 기호 ∨</span>
+                                                        <button
+                                                            type="button"
+                                                            onMouseDown={e => e.preventDefault()}
+                                                            onClick={() => setSymbolModalOpen(false)}
+                                                            style={{ border: 'none', background: 'none', fontSize: 16, cursor: 'pointer', color: '#666' }}
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 2, maxHeight: 220, overflowY: 'auto' }}>
+                                                        {['※', '☆', '★', '●', '·', '◆', '→', '↑', '▶', '♥',
+                                                          '♬', '🎵', '©', '☎', '㉿', '∞', '¥', '£', '℃', '℉',
+                                                          '±', '≠', '≤', '≥', 'α', 'β', 'γ', 'Ω', '¼', '½',
+                                                          '¾', '™', '®', '♠', '♣', '♦', '✔', '⚡', '📌', '🚩',
+                                                          '💡', '🚀', '🔥', '✨', '🎉', '👍', '👏', '🙏', '💯', '⭕'].map(sym => (
+                                                            <div
+                                                                key={sym}
+                                                                onMouseDown={e => e.preventDefault()}
+                                                                onClick={() => {
+                                                                    insertTextToBody(sym);
+                                                                    setSymbolModalOpen(false);
+                                                                }}
+                                                                style={{
+                                                                    width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                    border: '1px solid #efefef', fontSize: 13, cursor: 'pointer', background: '#fff'
+                                                                }}
+                                                                onMouseEnter={e => { e.currentTarget.style.background = '#e6f7f2'; e.currentTarget.style.borderColor = '#00b894'; }}
+                                                                onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#efefef'; }}
+                                                            >
+                                                                {sym}
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
+                                    </div>
 
-                                    {/* Side Info */}
+                                    {/* Workspace Document Canvas */}
+                                    <div style={{ background: '#f5f6f8', padding: '32px 20px', minHeight: 600 }}>
+                                        <div style={{
+                                            maxWidth: 820,
+                                            margin: '0 auto',
+                                            background: '#ffffff',
+                                            borderRadius: 8,
+                                            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+                                            padding: '44px 50px',
+                                            boxSizing: 'border-box'
+                                        }}>
+                                            {/* Title Input */}
+                                            <div style={{ marginBottom: 28, borderBottom: '1px solid #ececec', paddingBottom: 16 }}>
+                                                <input
+                                                    type="text"
+                                                    placeholder="제목"
+                                                    value={previewData?.title || ''}
+                                                    onChange={e => updateActivePreview('title', e.target.value)}
+                                                    style={{
+                                                        width: '100%',
+                                                        fontSize: 28,
+                                                        fontWeight: 800,
+                                                        color: '#0f172a',
+                                                        border: 'none',
+                                                        outline: 'none',
+                                                        fontFamily: "'Nanum Gothic', sans-serif"
+                                                    }}
+                                                />
+                                            </div>
+
+                                            {/* 선택된 사진/스티커/블록 전용 네이버 스마트에디터 ONE 토글 툴팁 (스크린샷 2 동일) — 인용구는 별도 툴팁 사용 */}
+                                            {selectedBlockEl && !selectedBlockEl.hasAttribute('data-quote') && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    top: Math.max(10, (selectedBlockEl.offsetTop - 44)) || 0,
+                                                    left: Math.max(10, (selectedBlockEl.offsetLeft + selectedBlockEl.offsetWidth / 2 - 40)) || 0,
+                                                    zIndex: 999,
+                                                    background: '#ffffff',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: 4,
+                                                    boxShadow: '0 4px 14px rgba(0,0,0,0.14)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 10,
+                                                    padding: '5px 12px',
+                                                    userSelect: 'none'
+                                                }}>
+                                                    {/* Alignment Cycle Button */}
+                                                    <div
+                                                        onMouseDown={e => e.preventDefault()}
+                                                        onClick={() => {
+                                                            const currentAlign = selectedBlockEl.style.textAlign || 'left';
+                                                            const nextAlign = currentAlign === 'left' ? 'center' : currentAlign === 'center' ? 'right' : 'left';
+                                                            alignSelectedBlock(nextAlign);
+                                                        }}
+                                                        title="정렬 변경"
+                                                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                    >
+                                                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                                                            <rect x="2" y="3" width="16" height="2" rx="1" fill="#00b894" />
+                                                            <rect x="2" y="7" width="11" height="2" rx="1" fill="#00b894" />
+                                                            <rect x="2" y="11" width="8" height="2" rx="1" fill="#00b894" />
+                                                            <rect x="2" y="15" width="16" height="2" rx="1" fill="#00b894" />
+                                                        </svg>
+                                                    </div>
+
+                                                    {/* Vertical Divider */}
+                                                    <div style={{ width: 1, height: 16, background: '#e5e7eb' }} />
+
+                                                    {/* Trash Icon */}
+                                                    <div
+                                                        onMouseDown={e => e.preventDefault()}
+                                                        onClick={deleteSelectedBlock}
+                                                        title="삭제"
+                                                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                    >
+                                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <polyline points="3 6 5 6 21 6"></polyline>
+                                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                        </svg>
+                                                    </div>
+
+                                                    {/* Down Arrow Notch */}
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        bottom: -5,
+                                                        left: '50%',
+                                                        transform: 'translateX(-50%)',
+                                                        width: 0,
+                                                        height: 0,
+                                                        borderLeft: '5px solid transparent',
+                                                        borderRight: '5px solid transparent',
+                                                        borderTop: '5px solid #ffffff'
+                                                    }} />
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        bottom: -6,
+                                                        left: '50%',
+                                                        transform: 'translateX(-50%)',
+                                                        width: 0,
+                                                        height: 0,
+                                                        borderLeft: '5px solid transparent',
+                                                        borderRight: '5px solid transparent',
+                                                        borderTop: '5px solid #d1d5db',
+                                                        zIndex: -1
+                                                    }} />
+                                                </div>
+                                            )}
+
+                                            {/* 선택된 인용구 전용 툴팁 — 스타일 6종 즉시 전환 + 삭제 (네이버 실제 인용구 선택 툴바 동일) */}
+                                            {selectedBlockEl && selectedBlockEl.hasAttribute('data-quote') && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    top: Math.max(10, (selectedBlockEl.offsetTop - 44)) || 0,
+                                                    left: Math.max(10, (selectedBlockEl.offsetLeft + selectedBlockEl.offsetWidth / 2 - 110)) || 0,
+                                                    zIndex: 999,
+                                                    background: '#ffffff',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: 4,
+                                                    boxShadow: '0 4px 14px rgba(0,0,0,0.14)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 4,
+                                                    padding: '5px 8px',
+                                                    userSelect: 'none'
+                                                }}>
+                                                    {QUOTE_STYLES.map(qs => (
+                                                        <div
+                                                            key={qs.key}
+                                                            onMouseDown={e => e.preventDefault()}
+                                                            onClick={() => switchQuoteStyle(qs.key)}
+                                                            title={qs.label}
+                                                            style={{
+                                                                width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                cursor: 'pointer', borderRadius: 4, fontSize: 14,
+                                                                background: selectedBlockEl.getAttribute('data-quote') === qs.key ? '#e6f7f2' : 'transparent',
+                                                                color: selectedBlockEl.getAttribute('data-quote') === qs.key ? '#00b894' : '#555555',
+                                                            }}
+                                                        >
+                                                            <QuoteIcon styleKey={qs.key} size={16} />
+                                                        </div>
+                                                    ))}
+                                                    <div style={{ width: 1, height: 16, background: '#e5e7eb', margin: '0 2px' }} />
+                                                    <div
+                                                        onMouseDown={e => e.preventDefault()}
+                                                        onClick={deleteSelectedBlock}
+                                                        title="인용구 삭제"
+                                                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26 }}
+                                                    >
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <polyline points="3 6 5 6 21 6"></polyline>
+                                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                        </svg>
+                                                    </div>
+                                                    <div style={{
+                                                        position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%)',
+                                                        width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '5px solid #ffffff'
+                                                    }} />
+                                                    <div style={{
+                                                        position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)',
+                                                        width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '5px solid #d1d5db', zIndex: -1
+                                                    }} />
+                                                </div>
+                                            )}
+
+                                            {/* WYSIWYG Body Editor (contentEditable) */}
+                                            <div
+                                                ref={editorRef}
+                                                contentEditable
+                                                suppressContentEditableWarning
+                                                onClick={handleEditorClick}
+                                                onContextMenu={handleEditorContextMenu}
+                                                onKeyDown={handleEditorKeyDown}
+                                                onKeyUp={saveSelection}
+                                                onMouseUp={saveSelection}
+                                                onInput={() => {
+                                                    saveSelection();
+                                                    clearTimeout(editorSyncTimer.current);
+                                                    editorSyncTimer.current = setTimeout(syncEditorToState, 400);
+                                                }}
+                                                onBlur={syncEditorToState}
+                                                data-placeholder="나를 돌아보는 회고, 뜻밖의 발견을 기다립니다."
+                                                style={{
+                                                    width: '100%',
+                                                    fontSize: 16,
+                                                    lineHeight: 1.85,
+                                                    color: '#2d3748',
+                                                    border: 'none',
+                                                    outline: 'none',
+                                                    minHeight: 400,
+                                                    fontFamily: "'Nanum Gothic', sans-serif",
+                                                    whiteSpace: 'pre-wrap',
+                                                    background: 'transparent',
+                                                    cursor: 'text',
+                                                    wordBreak: 'break-word'
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                    {/* Side Info — 무료 이미지(Pexels) 모드에서만 사용. AI 이미지 모드의 프롬프트는
+                                        이제 본문 편집기 안의 이미지 삽입 위치 박스에 바로 표시되므로 별도 목록이 필요 없다. */}
+                                    {imageSource === 'stock' && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                                         <div>
                                             <label style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12, display: 'block', fontWeight: 600, textTransform: 'uppercase' }}>
-                                                {imageSource === 'stock' ? `무료 이미지 선택 (${previewData?.image_prompts?.length || 0}장)` : `생성될 이미지 (${previewData?.image_prompts?.length || 0})`}
+                                                {`무료 이미지 선택 (${previewData?.image_prompts?.length || 0}장)`}
                                             </label>
 
                                             {/* 무료 이미지 모드: 슬롯 카드 UI */}
@@ -3292,31 +4476,10 @@ function NewPostContent() {
                                                     )}
                                                 </div>
                                             )}
-
-                                            {/* AI 이미지 모드: 기존 프롬프트 목록 */}
-                                            {imageSource !== 'stock' && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                                {previewData?.image_prompts?.map((p, i) => (
-                                                    <div key={i} style={{
-                                                        fontSize: 12, padding: '12px', background: 'rgba(0,184,148,0.05)',
-                                                        border: '1px solid rgba(0,184,148,0.1)', borderRadius: 12,
-                                                        color: 'var(--text-secondary)', lineHeight: 1.4
-                                                    }}>
-                                                        <span style={{ color: 'var(--accent)', fontWeight: 800, marginRight: 6 }}>#{i + 1}</span>
-                                                        {p}
-                                                    </div>
-                                                ))}
-                                                {(!previewData?.image_prompts || previewData.image_prompts.length === 0) && !previewLoading && (
-                                                    <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>이미지 정보가 없습니다.</div>
-                                                )}
-                                            </div>
-                                            )}
                                         </div>
                                     </div>
+                                    )}
                                 </div>
-                                {/* Naver SmartEditor ONE White Paper Canvas 닫기 */}
-                                </div>
-                            </div>
                         )}
                     </div>
                 </div>

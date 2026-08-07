@@ -41,7 +41,7 @@ export async function POST(req) {
             body: JSON.stringify({
                 ...body,
                 topic: engineTopic,
-                gemini_api_key: profile?.gemini_api_key || null,
+                gemini_api_key: profile?.gemini_api_key || process.env.GEMINI_API_KEY || null,
                 account_prompts: account ? {
                     content_prompt: account.custom_content_prompt,
                     image_prompt: account.custom_image_prompt,
