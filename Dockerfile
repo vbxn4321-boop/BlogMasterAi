@@ -22,22 +22,21 @@ RUN apt-get update && apt-get install -y \
 # Set Puppeteer to use installed Chromium binary
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    NODE_ENV=production \
     PORT=3001
 
 WORKDIR /app
 
-# Copy root & workspace package files
-COPY package*.json ./
-COPY backend/package*.json ./backend/
+# Copy backend package files
+COPY backend/package*.json ./
 
-# Install dependencies for backend workspace
-RUN npm install --workspace=backend
+# Install backend dependencies directly
+RUN npm install --omit=dev
 
 # Copy backend source code
-COPY backend/ ./backend/
-
-WORKDIR /app/backend
+COPY backend/ ./
 
 EXPOSE 3001
 
 CMD ["node", "engine_api.js"]
+
