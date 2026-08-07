@@ -1704,9 +1704,45 @@ async function uploadImagesToStorage(postId, imagePaths) {
                 uploadedUrls.push(localPath); // 이미 HTTP URL이면 그대로
                 continue;
             }
+            // data: URI (Base64 인코딩 이미지) 처리 — Pexels/무료이미지 등에서 가져온
+            // 이미지가 data:image/jpeg;base64,... 형태로 저장되는 경우가 있다.
+            // 이를 디코딩하여 Supabase Storage에 직접 업로드한다.
+            if (typeof localPath === 'string' && localPath.startsWith('data:')) {
+                const dataUriMatch = localPath.match(/^data:([^;]+);base64,(.+)$/);
+                if (dataUriMatch) {
+                    const detectedMime = dataUriMatch[1];
+                    const base64Data = dataUriMatch[2];
+                    const fileBuffer = Buffer.from(base64Data, 'base64');
+                    const ext = detectedMime.includes('png') ? '.png' : detectedMime.includes('webp') ? '.webp' : '.jpg';
+                    const storagePath = `posts/${postId}/${i}${ext}`;
+                    let uploadError = null;
+                    let publicUrl = null;
+                    for (let attempt = 1; attempt <= 3; attempt++) {
+                        const { error } = await supabase.storage
+                            .from(STORAGE_BUCKET)
+                            .upload(storagePath, fileBuffer, { contentType: detectedMime, upsert: true });
+                        if (!error) {
+                            publicUrl = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(storagePath).data.publicUrl;
+                            uploadError = null;
+                            break;
+                        }
+                        uploadError = error;
+                        console.warn(`[Storage] data URI image ${i} upload attempt ${attempt} failed: ${error.message}`);
+                        if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+                    }
+                    if (publicUrl) {
+                        uploadedUrls.push(publicUrl);
+                        console.log(`[Storage] data URI image ${i} uploaded → ${publicUrl}`);
+                    } else {
+                        console.warn(`[Storage] data URI image ${i} upload failed after retries`);
+                        uploadedUrls.push(null); // null로 설정하여 프록시 경로로 가지 않게 함
+                    }
+                    continue;
+                }
+            }
             if (!fs.existsSync(localPath)) {
-                console.warn(`[Storage] Local file missing: ${localPath}`);
-                uploadedUrls.push(localPath);
+                console.warn(`[Storage] Local file missing: ${localPath.substring(0, 60)}...`);
+                uploadedUrls.push(null); // null로 처리하여 깨진 프록시 URL을 방지
                 continue;
             }
             const ext = path.extname(localPath).toLowerCase() || '.jpg';
