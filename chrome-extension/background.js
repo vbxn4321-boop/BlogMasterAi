@@ -1518,15 +1518,21 @@ async function applyFontFormatInTab(tabId, editorFrameId, kind, targetLabel) {
 
   const triggerCoords = await findCoordsInAnyContext((k) => {
     const selectors = k === 'size'
-      ? ['button[data-name="font-size"]', '.se-font-size-code-toolbar-button']
-      : ['button[data-name="font-family"]', 'button[data-name="font"]', '.se-font-family-code-toolbar-button'];
+      ? ['button[data-name="font-size"]', 'button[data-name="fontSize"]', '.se-font-size-code-toolbar-button', '[class*="fontSize"] button', '[class*="font_size"] button', '[data-name*="size"]']
+      : ['button[data-name="font-family"]', 'button[data-name="fontFamily"]', 'button[data-name="font"]', '.se-font-family-code-toolbar-button', '[class*="fontFamily"] button', '[class*="font_family"] button'];
     let btn = null;
     for (const sel of selectors) { btn = document.querySelector(sel); if (btn) break; }
+    if (!btn && k === 'size') {
+      btn = Array.from(document.querySelectorAll('button[data-type="label-select"], button.se-toolbar-button')).find(b => {
+        const txt = b.textContent.trim();
+        return /^\d{2}$/.test(txt) || ['11', '13', '15', '16', '17', '19', '24', '28', '30', '32', '34'].includes(txt);
+      });
+    }
     if (!btn && k === 'family') {
       const knownFonts = ['기본서체', '나눔고딕', '나눔명조', '나눔바른고딕', '나눔스퀘어', '마루부리', '다시시작해', '바른히피', '우리딸손글씨'];
-      btn = Array.from(document.querySelectorAll('button[data-type="label-select"]')).find(b => {
-        const lbl = b.querySelector('.se-toolbar-label');
-        return lbl && knownFonts.includes(lbl.textContent.trim());
+      btn = Array.from(document.querySelectorAll('button[data-type="label-select"], button.se-toolbar-button')).find(b => {
+        const lbl = b.querySelector('.se-toolbar-label') || b;
+        return lbl && knownFonts.some(f => lbl.textContent.includes(f));
       });
     }
     if (!btn || btn.offsetWidth === 0) return null;
@@ -1543,10 +1549,11 @@ async function applyFontFormatInTab(tabId, editorFrameId, kind, targetLabel) {
   await sleep(700);
 
   const optionCoords = await findCoordsInAnyContext((targetText) => {
-    const opts = document.querySelectorAll('.se-toolbar-option-label');
+    const opts = document.querySelectorAll('.se-toolbar-option-label, [class*="option-label"], [class*="option_label"], .se-custom-select-option, [class*="select_option"]');
     for (const el of opts) {
       const r = el.getBoundingClientRect();
-      if (r.width > 0 && el.textContent.trim() === targetText) {
+      const txt = el.textContent.trim();
+      if (r.width > 0 && (txt === targetText || txt.replace(/\s+/g, '') === targetText.replace(/\s+/g, ''))) {
         return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
       }
     }

@@ -2092,6 +2092,11 @@ app.get('/api/extension/image/:postId/:index', extensionAuthMiddleware, async (r
 
     if (!imgPath) return res.status(404).json({ error: 'Image not found' });
 
+    // HTTP(S) URL인 경우 302 리다이렉트 (Supabase Storage 공개 URL 등)
+    if (typeof imgPath === 'string' && (imgPath.startsWith('http://') || imgPath.startsWith('https://'))) {
+        return res.redirect(imgPath);
+    }
+
     if (!require('fs').existsSync(imgPath)) return res.status(404).json({ error: 'Image file missing' });
 
     const ext = require('path').extname(imgPath).toLowerCase();

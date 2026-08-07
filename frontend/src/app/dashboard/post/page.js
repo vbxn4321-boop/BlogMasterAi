@@ -320,26 +320,44 @@ function htmlToMarkup(html) {
     // </div><div>가 나중에 줄바꿈(\n)으로 바뀌어 버려 "폰트 대신 줄바꿈이 생기는" 문제가
     // 생긴다. 그래서 내용에 div/p/br 같은 블록 경계가 전혀 없을 때만 변환하고, 여러 줄에
     // 걸친 경우는 안전하게 건너뛴다(폰트 적용은 못 지키지만 텍스트를 깨뜨리지는 않음).
+    // <font size/face>(execCommand가 만드는 태그) 또는 <span style="font-size/font-family"> →
+    // [FS_n]/[FF_encoded] 마크업으로 보존.
+    // 선택 영역이 여러 줄(div)을 포함하는 경우, [FS_n] 태그가 </div>를 감싸버리면
+    // </div>가 \n으로 변환될 때 폰트 태그와 엉켜 엉뚱한 줄바꿈이 생기거나 폰트가 유실된다.
+    // 따라서 <font>/<span> 태그 내부에 div/p 블록 경계가 있으면 각 블록 내부로 [FS_n]/[FF_x]를 분배하여
+    // 줄바꿈도 지키고 폰트 서식도 100% 보존한다.
     let fontTagsRemain = true;
     while (fontTagsRemain) {
         fontTagsRemain = false;
-        text = text.replace(/<(font|span)\s+([^>]*)>((?:(?!<(?:font|span)[\s>]|<\/?(?:div|p|br)\b)[\s\S])*?)<\/\1>/gi, (whole, _tag, attrs, inner) => {
+        text = text.replace(/<(font|span)\s+([^>]*)>((?:(?!<(?:font|span)[\s>])[\s\S])*?)<\/\1>/gi, (whole, _tag, attrs, inner) => {
             const sizeAttr = attrs.match(/size=["']?(\d)["']?/i);
             const sizeStyle = attrs.match(/font-size:\s*(\d+)px/i);
-            // face/font-family 값 자체가 'Nanum Gothic' 처럼 작은따옴표를 포함할 수 있어(폰트 드롭다운의
-            // font 값 그대로 저장됨), 값 안의 작은따옴표에서 매칭이 끊기지 않도록 여는 따옴표 종류에 맞춰서만 닫는다.
             const faceAttr = attrs.match(/face="([^"]*)"/i) || attrs.match(/face='([^']*)'/i);
             const familyStyle = attrs.match(/font-family:\s*([^;"]+)/i);
-            if (!sizeAttr && !sizeStyle && !faceAttr && !familyStyle) return whole; // 폰트와 무관한 태그는 그대로 두고 나중에 일괄 제거
+            if (!sizeAttr && !sizeStyle && !faceAttr && !familyStyle) return whole;
+
             fontTagsRemain = true;
-            let out = inner;
             const face = faceAttr ? faceAttr[1].trim() : (familyStyle ? familyStyle[1].trim() : null);
-            if (face) out = `[FF_${encodeURIComponent(face)}]${out}[/FF]`;
             const level = sizeAttr
                 ? sizeAttr[1]
                 : (sizeStyle ? Object.keys(FONT_SIZE_PX).find(k => FONT_SIZE_PX[k] === parseInt(sizeStyle[1], 10)) : null);
-            if (level) out = `[FS_${level}]${out}[/FS]`;
-            return out;
+
+            const wrapFont = (t) => {
+                let res = t;
+                if (face) res = `[FF_${encodeURIComponent(face)}]${res}[/FF]`;
+                if (level) res = `[FS_${level}]${res}[/FS]`;
+                return res;
+            };
+
+            // 내부 내용에 div/p 블록이 들어있는 경우: 각 블록 안으로 폰트 마크업을 분배
+            if (/<(?:div|p)[\s>]/i.test(inner)) {
+                return inner.replace(/(<(?:div|p)[^>]*>)([\s\S]*?)(<\/(?:div|p)>)/gi, (_, open, body, close) => {
+                    if (!body.trim()) return open + body + close;
+                    return open + wrapFont(body) + close;
+                });
+            }
+
+            return wrapFont(inner);
         });
     }
     // 인용구, data-image-anchor 블록은 모두 안에 중첩 div를 포함할 수 있어 regex로 안전하게
