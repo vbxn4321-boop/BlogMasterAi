@@ -315,10 +315,15 @@ function htmlToMarkup(html) {
     // <span style="font-size/font-family">(markupToHtml이 재렌더링한 자기 자신) →
     // [FS_n]/[FF_encoded] 마크업으로 보존. 크기 지정 후 다시 서체를 지정하는 식으로
     // 중첩될 수 있어, 안쪽에 같은 종류의 태그가 없는 것부터(가장 안쪽부터) 반복 변환한다.
+    // 선택 영역이 줄(문단 div) 경계를 넘어가면 브라우저가 <font>/<span> 태그 안에 </div><div>가
+    // 낀 기형적인 구조를 만들 수 있다 — 이 경우 그대로 [FS_n]/[FF_x]로 감싸면 그 안에 남은
+    // </div><div>가 나중에 줄바꿈(\n)으로 바뀌어 버려 "폰트 대신 줄바꿈이 생기는" 문제가
+    // 생긴다. 그래서 내용에 div/p/br 같은 블록 경계가 전혀 없을 때만 변환하고, 여러 줄에
+    // 걸친 경우는 안전하게 건너뛴다(폰트 적용은 못 지키지만 텍스트를 깨뜨리지는 않음).
     let fontTagsRemain = true;
     while (fontTagsRemain) {
         fontTagsRemain = false;
-        text = text.replace(/<(font|span)\s+([^>]*)>((?:(?!<(?:font|span)[\s>])[\s\S])*?)<\/\1>/gi, (whole, _tag, attrs, inner) => {
+        text = text.replace(/<(font|span)\s+([^>]*)>((?:(?!<(?:font|span)[\s>]|<\/?(?:div|p|br)\b)[\s\S])*?)<\/\1>/gi, (whole, _tag, attrs, inner) => {
             const sizeAttr = attrs.match(/size=["']?(\d)["']?/i);
             const sizeStyle = attrs.match(/font-size:\s*(\d+)px/i);
             // face/font-family 값 자체가 'Nanum Gothic' 처럼 작은따옴표를 포함할 수 있어(폰트 드롭다운의

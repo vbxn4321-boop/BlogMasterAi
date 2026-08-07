@@ -121,6 +121,23 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 
 let isProcessingNaverJob = false;
 
+// Manifest V3 서비스 워커는 ~30초간 활동이 없으면 크롬이 강제 종료한다. 이미지/동영상이
+// 여러 개 있거나 폰트 적용 단계가 있으면 자동화 한 번이 몇 분씩 걸릴 수 있는데, 그 중간에
+// 서비스 워커가 죽으면 실행 중이던 runEditorAutomation이 통째로 사라지고(탭은 열린 채
+// 방치됨) 다음 poll()이 새 워커에서 다시 시작되면서 "No tab with given id"/"Debugger is
+// not attached" 같은 오류가 반복된다. 자동화가 진행되는 동안 chrome API를 주기적으로
+// 호출해 워커의 유휴 타이머를 계속 리셋시켜 중간에 종료되지 않도록 한다.
+let keepAliveTimer = null;
+function startKeepAlive() {
+  stopKeepAlive();
+  keepAliveTimer = setInterval(() => {
+    chrome.runtime.getPlatformInfo(() => { void chrome.runtime.lastError; });
+  }, 20000);
+}
+function stopKeepAlive() {
+  if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
+}
+
 // ── Main poll function ───────────────────────────────────────
 async function poll() {
   if (isProcessingNaverJob) {
@@ -145,7 +162,11 @@ async function poll() {
       }
     }
 
-    const isOrphaned = !activeJobStartTime || (Date.now() - activeJobStartTime > 3 * 60 * 1000) || (currentJobTabId && !tabExists);
+    // 이미지/동영상이 여러 개거나 폰트 적용이 있으면 자동화가 몇 분씩 걸릴 수 있어(특히
+    // 동영상 다운로드는 최대 2분까지 대기) 3분은 정상적으로 진행 중인 작업까지 "멈춘 작업"으로
+    // 오판해 새 작업을 중복 시작시키는 원인이 됐다(서비스 워커가 죽었을 때 orphan 정리 목적이므로
+    // keepalive로 워커가 안 죽는 이상 이 조건은 실질적으로 fallback 안전장치 역할만 하면 됨).
+    const isOrphaned = !activeJobStartTime || (Date.now() - activeJobStartTime > 8 * 60 * 1000) || (currentJobTabId && !tabExists);
     if (isOrphaned) {
       console.log('[BG] Orphaned activeJobId detected (tabExists:', tabExists, '), clearing:', activeJobId);
       currentJobTabId = null;
@@ -369,6 +390,7 @@ async function processJob(job, apiUrl, accessToken) {
   isProcessingNaverJob = true;
   console.log('[BG] Starting job:', job.id);
   await set({ activeJobId: job.id, activeJobStartTime: Date.now() });
+  startKeepAlive();
 
   try {
     try {
@@ -450,6 +472,7 @@ async function processJob(job, apiUrl, accessToken) {
     currentJobTabId = null;
     await reportDone(job.id, result, apiUrl, accessToken);
   } finally {
+    stopKeepAlive();
     isProcessingNaverJob = false;
   }
 }
@@ -1075,7 +1098,7 @@ async function uploadImageInTab(tabId, imageUrl, link = null, isAiGenerated = fa
     return false;
   }
 
-  const localPath = await new Promise((resolve) => {
+  const downloadedItem = await new Promise((resolve) => {
     const timer = setTimeout(() => {
       chrome.downloads.onChanged.removeListener(dl);
       resolve(null);
@@ -1085,7 +1108,7 @@ async function uploadImageInTab(tabId, imageUrl, link = null, isAiGenerated = fa
       if (delta.state?.current === 'complete') {
         chrome.downloads.onChanged.removeListener(dl);
         clearTimeout(timer);
-        chrome.downloads.search({ id: downloadId }, ([item]) => resolve(item?.filename || null));
+        chrome.downloads.search({ id: downloadId }, ([item]) => resolve(item || null));
       } else if (delta.state?.current === 'interrupted') {
         chrome.downloads.onChanged.removeListener(dl);
         clearTimeout(timer);
@@ -1095,8 +1118,18 @@ async function uploadImageInTab(tabId, imageUrl, link = null, isAiGenerated = fa
     chrome.downloads.onChanged.addListener(dl);
   });
 
+  const localPath = downloadedItem?.filename || null;
   if (!localPath) {
     console.warn('[IMG] Image download failed or timed out');
+    return false;
+  }
+  // 서버가 이미지 파일을 찾지 못하면 JSON 에러 응답(예: {"error":"Image file missing"})을
+  // 내려주는데, chrome.downloads는 그 바이트를 그대로 "다운로드 성공"으로 받아버린다 —
+  // 실제로는 이미지가 아니므로 mime 타입을 확인해 걸러내지 않으면 이 깨진 파일을 그대로
+  // 네이버에 업로드 시도하게 된다.
+  if (downloadedItem.mime && !downloadedItem.mime.startsWith('image/')) {
+    console.warn(`[IMG] 다운로드된 파일이 이미지가 아닙니다 (mime: ${downloadedItem.mime}) — 서버에서 이미지를 못 찾은 것으로 보입니다. 건너뜁니다.`);
+    chrome.downloads.removeFile(downloadId, () => {});
     return false;
   }
   console.warn('[IMG] Downloaded to:', localPath);
@@ -1279,7 +1312,7 @@ async function uploadVideoInTab(tabId, editorFrameId, videoUrl) {
     return false;
   }
 
-  const localPath = await new Promise((resolve) => {
+  const downloadedVideoItem = await new Promise((resolve) => {
     const timer = setTimeout(() => {
       chrome.downloads.onChanged.removeListener(dl);
       resolve(null);
@@ -1289,7 +1322,7 @@ async function uploadVideoInTab(tabId, editorFrameId, videoUrl) {
       if (delta.state?.current === 'complete') {
         chrome.downloads.onChanged.removeListener(dl);
         clearTimeout(timer);
-        chrome.downloads.search({ id: downloadId }, ([item]) => resolve(item?.filename || null));
+        chrome.downloads.search({ id: downloadId }, ([item]) => resolve(item || null));
       } else if (delta.state?.current === 'interrupted') {
         chrome.downloads.onChanged.removeListener(dl);
         clearTimeout(timer);
@@ -1299,8 +1332,16 @@ async function uploadVideoInTab(tabId, editorFrameId, videoUrl) {
     chrome.downloads.onChanged.addListener(dl);
   });
 
+  const localPath = downloadedVideoItem?.filename || null;
   if (!localPath) {
     console.warn('[VIDEO] Video download failed or timed out');
+    return false;
+  }
+  // 서버가 동영상 파일을 찾지 못하면 JSON 에러 응답을 대신 내려줄 수 있다 — 이미지와
+  // 동일하게 mime 타입으로 실제 동영상이 맞는지 확인한다.
+  if (downloadedVideoItem.mime && !downloadedVideoItem.mime.startsWith('video/')) {
+    console.warn(`[VIDEO] 다운로드된 파일이 동영상이 아닙니다 (mime: ${downloadedVideoItem.mime}) — 서버에서 동영상을 못 찾은 것으로 보입니다. 건너뜁니다.`);
+    chrome.downloads.removeFile(downloadId, () => {});
     return false;
   }
   console.warn('[VIDEO] Downloaded to:', localPath);

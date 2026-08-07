@@ -1712,15 +1712,31 @@ async function uploadImagesToStorage(postId, imagePaths) {
             const ext = path.extname(localPath).toLowerCase() || '.jpg';
             const storagePath = `posts/${postId}/${i}${ext}`;
             const fileBuffer = fs.readFileSync(localPath);
-            const { error } = await supabase.storage
-                .from(STORAGE_BUCKET)
-                .upload(storagePath, fileBuffer, { contentType: mimeTypes[ext] || 'image/jpeg', upsert: true });
-            if (error) throw new Error(error.message);
-            const { data: { publicUrl } } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(storagePath);
+            // Railway 등 컨테이너 디스크는 재배포/재시작 시 사라지는 임시 저장소라, 여기서
+            // 업로드가 실패해 로컬 경로로 폴백되면 나중에 익스텐션이 이미지를 요청할 때
+            // (/api/extension/image/...) 파일이 이미 없어져 404(JSON)를 이미지 대신 받게 된다
+            // (크롬이 그걸 .json 파일로 받아버림) — 그래서 일시적 오류로 폴백되는 걸 줄이기 위해
+            // 몇 차례 재시도한다.
+            let uploadError = null;
+            let publicUrl = null;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                const { error } = await supabase.storage
+                    .from(STORAGE_BUCKET)
+                    .upload(storagePath, fileBuffer, { contentType: mimeTypes[ext] || 'image/jpeg', upsert: true });
+                if (!error) {
+                    publicUrl = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(storagePath).data.publicUrl;
+                    uploadError = null;
+                    break;
+                }
+                uploadError = error;
+                console.warn(`[Storage] Image ${i} upload attempt ${attempt} failed: ${error.message}`);
+                if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+            }
+            if (uploadError) throw new Error(uploadError.message);
             uploadedUrls.push(publicUrl);
             console.log(`[Storage] Image ${i} uploaded → ${publicUrl}`);
         } catch (e) {
-            console.warn(`[Storage] Upload failed for image ${i} (${localPath}): ${e.message}`);
+            console.warn(`[Storage] Upload failed for image ${i} (${localPath}) after retries: ${e.message}`);
             uploadedUrls.push(localPath); // 실패 시 로컬 경로로 폴백
         }
     }
