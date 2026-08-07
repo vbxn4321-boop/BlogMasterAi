@@ -846,15 +846,15 @@ function NewPostContent() {
         updateActivePreview('body', markup);
     }, [activePreviewIdx]);
 
-    // WYSIWYG 에디터 HTML 갱신 (state → editor, 커서 보존 불필요 시점에만)
+    // WYSIWYG 에디터 HTML 갱신 (state → editor)
     const refreshEditorHtml = useCallback((body, customImages, imagePrompts) => {
         if (!editorRef.current) return;
         const newHtml = markupToHtml(body, customImages, imagePrompts);
-        // 현재 포커스 중이면 갱신 방지 (사용자 입력 중 깜빡임 방지) — 인용구 본문/출처는
-        // contenteditable="true" 섬이라 포커스 시 document.activeElement가 editorRef 자신이
-        // 아니라 그 안쪽 섬 엘리먼트가 되므로, contains()로 "에디터 내부 어딘가에 포커스"까지 포함해 체크한다.
-        if (editorRef.current.contains(document.activeElement)) return;
-        editorRef.current.innerHTML = newHtml;
+        // 에디터 안에 [QUOTE_나 [IMAGE_ANCHOR_ 같은 생 마크업 태그 문자열이 노출되어 있으면 포커스 여부와 상관없이 무조건 비주얼 블록으로 즉시 변환
+        const hasRawMarkup = /\[(QUOTE_|IMAGE_ANCHOR_|STICKER_|BUSINESS_)/i.test(editorRef.current.innerHTML || '');
+        if (hasRawMarkup || !editorRef.current.contains(document.activeElement)) {
+            editorRef.current.innerHTML = newHtml;
+        }
     }, []);
 
     // previewData가 바뀔 때 에디터 HTML 갱신
@@ -863,7 +863,7 @@ function NewPostContent() {
         if (pd?.body !== undefined) {
             refreshEditorHtml(pd.body, pd?.custom_uploaded_images, pd?.image_prompts);
         }
-    }, [activePreviewIdx, previews]);
+    }, [activePreviewIdx, previews, refreshEditorHtml]);
 
     const savedRangeRef = useRef(null);
     const [selectedBlockEl, setSelectedBlockEl] = useState(null);
