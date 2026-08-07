@@ -1661,7 +1661,6 @@ async function applyFontFormatInTab(tabId, editorFrameId, kind, targetLabel) {
   console.log(`[FONT] ${label} "${exactText}" 선택 완료!`);
   return true;
 }
-}
 
 // 인용구 삽입 (6가지 스타일 전체 지원)
 async function insertQuoteInTab(tabId, editorFrameId, type, text) {
