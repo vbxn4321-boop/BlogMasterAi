@@ -1241,7 +1241,7 @@ function NewPostContent() {
         e.target.value = '';
     };
     const executionMode = 'extension';
-    const [thumbnailTextMode, setThumbnailTextMode] = useState(false);
+    const [thumbnailTextMode, setThumbnailTextMode] = useState(true);
     const [thumbnailCustomText, setThumbnailCustomText] = useState('');
     const [thumbnailSubText, setThumbnailSubText] = useState('');
     const [thumbnailStyle, setThumbnailStyle] = useState('center_text');
